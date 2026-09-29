@@ -5,49 +5,22 @@ import statistics
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
-BASE_URL = "https://data-api.binance.vision"
+SPOT_URL = "https://data-api.binance.vision"
+FUTURES_URL = "https://fapi.binance.com"
 
 session = requests.Session()
 
-# =========================
-# SİSTEM AYARLARI
-# =========================
-
 TOTAL_CAPITAL = 100.0
-
-# Tek işlemde kullanılacak sermaye
 TRADE_BUDGET = 20.0
-
-# Maksimum kabul edilen sermaye riski
 RISK_PERCENT = 1.0
-
-# Aynı anda en fazla 5 sinyal gönder
 MAX_ALERTS = 5
 
 
-# =========================
-# BINANCE
-# =========================
+# =========================================================
+# GENEL İSTEK
+# =========================================================
 
-def get_24h_tickers():
-
-    url = f"{BASE_URL}/api/v3/ticker/24hr"
-
-    r = session.get(url, timeout=20)
-    r.raise_for_status()
-
-    return r.json()
-
-
-def get_klines(symbol):
-
-    url = f"{BASE_URL}/api/v3/klines"
-
-    params = {
-        "symbol": symbol,
-        "interval": "1h",
-        "limit": 100
-    }
+def get_json(url, params=None):
 
     r = session.get(
         url,
@@ -60,9 +33,92 @@ def get_klines(symbol):
     return r.json()
 
 
-# =========================
+# =========================================================
+# SPOT VERİLERİ
+# =========================================================
+
+def get_24h_tickers():
+
+    return get_json(
+        f"{SPOT_URL}/api/v3/ticker/24hr"
+    )
+
+
+def get_spot_klines(symbol):
+
+    return get_json(
+        f"{SPOT_URL}/api/v3/klines",
+        {
+            "symbol": symbol,
+            "interval": "1h",
+            "limit": 100
+        }
+    )
+
+
+# =========================================================
+# FUTURES VERİLERİ
+# =========================================================
+
+def get_futures_klines(symbol):
+
+    return get_json(
+        f"{FUTURES_URL}/fapi/v1/klines",
+        {
+            "symbol": symbol,
+            "interval": "1h",
+            "limit": 30
+        }
+    )
+
+
+def get_funding(symbol):
+
+    try:
+
+        data = get_json(
+            f"{FUTURES_URL}/fapi/v1/fundingRate",
+            {
+                "symbol": symbol,
+                "limit": 1
+            }
+        )
+
+        if not data:
+            return None
+
+        return float(
+            data[-1]["fundingRate"]
+        )
+
+    except Exception:
+
+        return None
+
+
+def get_open_interest(symbol):
+
+    try:
+
+        data = get_json(
+            f"{FUTURES_URL}/fapi/v1/openInterest",
+            {
+                "symbol": symbol
+            }
+        )
+
+        return float(
+            data["openInterest"]
+        )
+
+    except Exception:
+
+        return None
+
+
+# =========================================================
 # EMA
-# =========================
+# =========================================================
 
 def calculate_ema(values, period):
 
@@ -85,9 +141,9 @@ def calculate_ema(values, period):
     return ema
 
 
-# =========================
+# =========================================================
 # RSI
-# =========================
+# =========================================================
 
 def calculate_rsi(values, period=14):
 
@@ -128,12 +184,12 @@ def calculate_rsi(values, period=14):
     ):
 
         avg_gain = (
-            (avg_gain * (period - 1))
+            avg_gain * (period - 1)
             + gains[i]
         ) / period
 
         avg_loss = (
-            (avg_loss * (period - 1))
+            avg_loss * (period - 1)
             + losses[i]
         ) / period
 
@@ -147,9 +203,80 @@ def calculate_rsi(values, period=14):
     )
 
 
-# =========================
+# =========================================================
+# BTC PİYASA FİLTRESİ
+# =========================================================
+
+def analyze_btc():
+
+    try:
+
+        candles = get_spot_klines(
+            "BTCUSDT"
+        )
+
+        closed = candles[:-1]
+
+        closes = [
+            float(x[4])
+            for x in closed
+        ]
+
+        if len(closes) < 30:
+            return None
+
+        price = closes[-1]
+
+        ema9 = calculate_ema(
+            closes,
+            9
+        )
+
+        ema21 = calculate_ema(
+            closes,
+            21
+        )
+
+        rsi = calculate_rsi(
+            closes,
+            14
+        )
+
+        change_6h = (
+            (
+                closes[-1] -
+                closes[-7]
+            )
+            / closes[-7]
+        ) * 100
+
+        if ema9 > ema21 and price > ema9:
+
+            direction = "YUKARI"
+
+        elif ema9 < ema21 and price < ema9:
+
+            direction = "AŞAĞI"
+
+        else:
+
+            direction = "NÖTR"
+
+        return {
+            "direction": direction,
+            "price": price,
+            "rsi": rsi,
+            "change_6h": change_6h
+        }
+
+    except Exception:
+
+        return None
+
+
+# =========================================================
 # İŞLEM PLANI
-# =========================
+# =========================================================
 
 def create_trade_plan(
     direction,
@@ -167,14 +294,13 @@ def create_trade_plan(
 
     if direction == "LONG":
 
-        # Stop desteğin biraz altında
         stop = support * 0.995
 
-        # Desteğin çok yakın olması durumunda
         if stop >= price:
 
             stop = price * (
-                1 - max(
+                1 -
+                max(
                     volatility * 0.8,
                     1.5
                 ) / 100
@@ -193,21 +319,16 @@ def create_trade_plan(
             / entry
         ) * 100
 
-        # İlk hedef riskin 1.5 katı
         tp1 = entry * (
             1 +
-            (risk_percent * 1.5)
-            / 100
+            risk_percent * 1.5 / 100
         )
 
-        # İkinci hedef riskin 2.5 katı
         tp2 = entry * (
             1 +
-            (risk_percent * 2.5)
-            / 100
+            risk_percent * 2.5 / 100
         )
 
-        # Direnci aşırı geçmesin
         if resistance > entry:
 
             tp1 = min(
@@ -215,17 +336,13 @@ def create_trade_plan(
                 resistance * 0.995
             )
 
-            tp2 = max(
-                tp1 * 1.01,
-                min(
-                    tp2,
-                    resistance * 1.02
-                )
+            tp2 = min(
+                tp2,
+                resistance * 1.02
             )
 
     else:
 
-        # SHORT
         stop = resistance * 1.005
 
         if stop <= price:
@@ -253,14 +370,12 @@ def create_trade_plan(
 
         tp1 = entry * (
             1 -
-            (risk_percent * 1.5)
-            / 100
+            risk_percent * 1.5 / 100
         )
 
         tp2 = entry * (
             1 -
-            (risk_percent * 2.5)
-            / 100
+            risk_percent * 2.5 / 100
         )
 
         if support < entry:
@@ -270,42 +385,32 @@ def create_trade_plan(
                 support * 1.005
             )
 
-            tp2 = min(
-                tp1 * 0.99,
-                max(
-                    tp2,
-                    support * 0.98
-                )
+            tp2 = max(
+                tp2,
+                support * 0.98
             )
 
     if risk_percent <= 0:
         return None
 
-    # Risk bazlı pozisyon büyüklüğü
     position_size = (
         max_risk /
         (risk_percent / 100)
     )
 
-    # Tek işlem bütçesini geçme
     position_size = min(
         position_size,
         TRADE_BUDGET
     )
 
-    # Şimdilik kontrollü kaldıraç
-    leverage = 1
-
+    # Kontrollü kaldıraç
     if risk_percent <= 2:
-
         leverage = 3
 
     elif risk_percent <= 3:
-
         leverage = 2
 
     else:
-
         leverage = 1
 
     notional = (
@@ -319,24 +424,16 @@ def create_trade_plan(
         100
     )
 
-    tp1_percent = abs(
-        tp1 - entry
-    ) / entry * 100
-
-    tp2_percent = abs(
-        tp2 - entry
-    ) / entry * 100
-
     tp1_profit = (
         notional *
-        tp1_percent /
-        100
+        abs(tp1 - entry) /
+        entry
     )
 
     tp2_profit = (
         notional *
-        tp2_percent /
-        100
+        abs(tp2 - entry) /
+        entry
     )
 
     return {
@@ -356,20 +453,24 @@ def create_trade_plan(
     }
 
 
-# =========================
+# =========================================================
 # COIN ANALİZİ
-# =========================
+# =========================================================
 
-def analyze_coin(symbol):
+def analyze_coin(
+    symbol,
+    btc
+):
 
     try:
 
-        candles = get_klines(symbol)
+        candles = get_spot_klines(
+            symbol
+        )
 
         if len(candles) < 50:
             return None
 
-        # Son KAPANMIŞ mum
         closed = candles[:-1]
 
         closes = [
@@ -394,7 +495,6 @@ def analyze_coin(symbol):
 
         price = closes[-1]
 
-        # EMA
         ema9 = calculate_ema(
             closes,
             9
@@ -405,7 +505,6 @@ def analyze_coin(symbol):
             21
         )
 
-        # RSI
         rsi = calculate_rsi(
             closes,
             14
@@ -417,13 +516,10 @@ def analyze_coin(symbol):
         if rsi is None:
             return None
 
-        # Hacim
         current_volume = volumes[-1]
 
-        previous_volumes = volumes[-21:-1]
-
         average_volume = statistics.mean(
-            previous_volumes
+            volumes[-21:-1]
         )
 
         if average_volume == 0:
@@ -434,7 +530,6 @@ def analyze_coin(symbol):
             average_volume
         )
 
-        # Son 20 mumdan destek / direnç
         support = min(
             lows[-20:]
         )
@@ -443,17 +538,17 @@ def analyze_coin(symbol):
             highs[-20:]
         )
 
-        # Volatilite
         recent_ranges = []
 
-        for i in range(
-            -20,
-            0
-        ):
+        for i in range(-20, 0):
 
             candle_range = (
-                (highs[i] - lows[i])
-                / closes[i]
+                (
+                    highs[i] -
+                    lows[i]
+                )
+                /
+                closes[i]
             ) * 100
 
             recent_ranges.append(
@@ -464,9 +559,9 @@ def analyze_coin(symbol):
             recent_ranges
         )
 
-        # =====================
-        # PUANLAMA
-        # =====================
+        # =================================================
+        # TEKNİK PUAN
+        # =================================================
 
         long_score = 0
         short_score = 0
@@ -474,10 +569,10 @@ def analyze_coin(symbol):
         reasons_long = []
         reasons_short = []
 
-        # EMA TREND
         if ema9 > ema21:
 
             long_score += 1
+
             reasons_long.append(
                 "EMA9 > EMA21"
             )
@@ -485,14 +580,15 @@ def analyze_coin(symbol):
         if ema9 < ema21:
 
             short_score += 1
+
             reasons_short.append(
                 "EMA9 < EMA21"
             )
 
-        # FİYAT EMA ÜZERİNDE
         if price > ema9:
 
             long_score += 1
+
             reasons_long.append(
                 "Fiyat EMA9 üzerinde"
             )
@@ -500,31 +596,33 @@ def analyze_coin(symbol):
         if price < ema9:
 
             short_score += 1
+
             reasons_short.append(
                 "Fiyat EMA9 altında"
             )
 
-        # RSI
         if 50 <= rsi <= 68:
 
             long_score += 1
+
             reasons_long.append(
-                f"RSI uygun ({rsi:.1f})"
+                f"RSI {rsi:.1f}"
             )
 
         if 32 <= rsi <= 50:
 
             short_score += 1
+
             reasons_short.append(
-                f"RSI uygun ({rsi:.1f})"
+                f"RSI {rsi:.1f}"
             )
 
-        # HACİM
         if volume_ratio >= 1.5:
 
             if price > ema9:
 
                 long_score += 1
+
                 reasons_long.append(
                     f"Hacim {volume_ratio:.1f}x"
                 )
@@ -532,17 +630,112 @@ def analyze_coin(symbol):
             elif price < ema9:
 
                 short_score += 1
+
                 reasons_short.append(
                     f"Hacim {volume_ratio:.1f}x"
                 )
 
-        # =====================
-        # YÖN BELİRLE
-        # =====================
+        # =================================================
+        # FUTURES
+        # =================================================
+
+        funding = get_funding(symbol)
+
+        open_interest = get_open_interest(
+            symbol
+        )
+
+        futures_klines = get_futures_klines(
+            symbol
+        )
+
+        oi_change = None
+
+        if len(futures_klines) >= 3:
+
+            # Futures hacmi yerine OI trendini
+            # ayrıca ölçebilmek için mevcut
+            # open interest bilgisini kullanıyoruz.
+            # Geçmiş OI endpointi her sembolde
+            # aynı şekilde erişilebilir olmayabileceği
+            # için burada sadece mevcut OI gösteriliyor.
+            oi_change = None
+
+        # Funding değerlendirmesi
+        funding_percent = None
+
+        if funding is not None:
+
+            funding_percent = (
+                funding * 100
+            )
+
+            # Aşırı pozitif funding
+            # LONG tarafına karşı uyarı
+            if funding_percent > 0.05:
+
+                long_score -= 1
+
+                reasons_long.append(
+                    "Funding yüksek"
+                )
+
+            # Aşırı negatif funding
+            # SHORT tarafına karşı uyarı
+            if funding_percent < -0.05:
+
+                short_score -= 1
+
+                reasons_short.append(
+                    "Funding negatif"
+                )
+
+        # =================================================
+        # BTC FİLTRESİ
+        # =================================================
+
+        btc_supports_long = (
+            btc["direction"] == "YUKARI"
+        )
+
+        btc_supports_short = (
+            btc["direction"] == "AŞAĞI"
+        )
+
+        # BTC yukarıysa LONG'a destek
+        if btc_supports_long:
+
+            long_score += 1
+
+            reasons_long.append(
+                "BTC trendi yukarı"
+            )
+
+        # BTC aşağıysa SHORT'a destek
+        if btc_supports_short:
+
+            short_score += 1
+
+            reasons_short.append(
+                "BTC trendi aşağı"
+            )
+
+        # BTC ters yöndeyse puan kır
+        if btc["direction"] == "AŞAĞI":
+
+            long_score -= 1
+
+        if btc["direction"] == "YUKARI":
+
+            short_score -= 1
+
+        # =================================================
+        # YÖN
+        # =================================================
 
         if (
-            long_score >= 3 and
-            long_score > short_score
+            long_score >= 4
+            and long_score > short_score
         ):
 
             direction = "LONG"
@@ -550,8 +743,8 @@ def analyze_coin(symbol):
             reasons = reasons_long
 
         elif (
-            short_score >= 3 and
-            short_score > long_score
+            short_score >= 4
+            and short_score > long_score
         ):
 
             direction = "SHORT"
@@ -573,7 +766,6 @@ def analyze_coin(symbol):
         if plan is None:
             return None
 
-        # Risk/Getiri kontrolü
         risk = abs(
             plan["entry"] -
             plan["stop"]
@@ -589,7 +781,6 @@ def analyze_coin(symbol):
 
         rr = reward / risk
 
-        # TP1 için en az 1.3 R
         if rr < 1.3:
             return None
 
@@ -600,10 +791,11 @@ def analyze_coin(symbol):
             "score": score,
             "rsi": rsi,
             "volume_ratio": volume_ratio,
-            "ema9": ema9,
-            "ema21": ema21,
-            "support": support,
-            "resistance": resistance,
+            "funding": funding_percent,
+            "open_interest": open_interest,
+            "btc_direction": btc["direction"],
+            "btc_rsi": btc["rsi"],
+            "btc_change": btc["change_6h"],
             "rr": rr,
             "reasons": reasons,
             "plan": plan
@@ -614,163 +806,205 @@ def analyze_coin(symbol):
         return None
 
 
-# =========================
-# PİYASA TARAMASI
-# =========================
+# =========================================================
+# BTC'Yİ ANALİZ ET
+# =========================================================
 
-tickers = get_24h_tickers()
+btc = analyze_btc()
 
-stablecoins = {
-    "USDCUSDT",
-    "FDUSDUSDT",
-    "TUSDUSDT",
-    "USDPUSDT",
-    "DAIUSDT"
-}
-
-usdt_coins = [
-    x for x in tickers
-    if x["symbol"].endswith("USDT")
-    and x["symbol"] not in stablecoins
-]
-
-usdt_coins.sort(
-    key=lambda x: float(
-        x["quoteVolume"]
-    ),
-    reverse=True
-)
-
-# Yüksek hacimli ilk 40 coin
-top_coins = usdt_coins[:40]
-
-alerts = []
-
-for coin in top_coins:
-
-    result = analyze_coin(
-        coin["symbol"]
-    )
-
-    if result:
-        alerts.append(result)
-
-
-alerts.sort(
-    key=lambda x: (
-        x["score"],
-        x["rr"],
-        x["volume_ratio"]
-    ),
-    reverse=True
-)
-
-
-# =========================
-# TELEGRAM
-# =========================
-
-if alerts:
+if btc is None:
 
     message = (
-        "🚨 KRİPTO İŞLEM PLANI 🚨\n\n"
-        f"💵 Sermaye: ${TOTAL_CAPITAL:.2f}\n"
-        f"💰 İşlem bütçesi: ${TRADE_BUDGET:.2f}\n\n"
+        "⚠️ BTC ANALİZİ ALINAMADI\n\n"
+        "Piyasa filtresi çalışmadığı için "
+        "işlem sinyali üretilmedi.\n\n"
+        "⏸️ WAIT"
     )
-
-    for alert in alerts[:MAX_ALERTS]:
-
-        p = alert["plan"]
-
-        reasons = "\n".join(
-            f"• {x}"
-            for x in alert["reasons"]
-        )
-
-        message += (
-            f"{'🟢' if alert['direction'] == 'LONG' else '🔴'} "
-            f"{alert['direction']}\n"
-            f"🪙 {alert['symbol']}\n"
-            f"💰 Fiyat: {alert['price']:g}$\n\n"
-
-            f"📥 GİRİŞ\n"
-            f"{p['entry_low']:g} - "
-            f"{p['entry_high']:g}$\n\n"
-
-            f"🛑 STOP\n"
-            f"{p['stop']:g}$ "
-            f"(-{p['risk_percent']:.2f}%)\n\n"
-
-            f"🎯 TP1\n"
-            f"{p['tp1']:g}$\n\n"
-
-            f"🎯 TP2\n"
-            f"{p['tp2']:g}$\n\n"
-
-            f"💵 Ayrılan sermaye: "
-            f"${p['position_size']:.2f}\n"
-
-            f"⚡ Kaldıraç: "
-            f"{p['leverage']}x\n"
-
-            f"📊 Pozisyon büyüklüğü: "
-            f"${p['notional']:.2f}\n"
-
-            f"🔻 Stop zararı: "
-            f"~${p['estimated_loss']:.2f}\n"
-
-            f"📈 TP1 kârı: "
-            f"~${p['tp1_profit']:.2f}\n"
-
-            f"📈 TP2 kârı: "
-            f"~${p['tp2_profit']:.2f}\n\n"
-
-            f"📊 RSI: {alert['rsi']:.1f}\n"
-            f"🔥 Hacim: {alert['volume_ratio']:.1f}x\n"
-            f"📐 Risk/Getiri: "
-            f"1:{alert['rr']:.2f}\n"
-            f"⭐ Sinyal: "
-            f"{alert['score']}/4\n\n"
-
-            f"📌 NEDEN?\n"
-            f"{reasons}\n\n"
-
-            "⚠️ Otomatik emir açılmaz.\n"
-            "İşlem manuel değerlendirilmelidir.\n"
-
-            "━━━━━━━━━━━━━━\n\n"
-        )
 
 else:
 
-    message = (
-        "🟢 PİYASA TARAMASI TAMAMLANDI\n\n"
-        f"💵 Sermaye: ${TOTAL_CAPITAL:.2f}\n"
-        f"💰 İşlem bütçesi: ${TRADE_BUDGET:.2f}\n\n"
+    # =====================================================
+    # COINLER
+    # =====================================================
 
-        "EMA + RSI + hacim + "
-        "destek/direnç + risk/getiri "
-        "kriterlerini sağlayan yeterince "
-        "güçlü bir sinyal bulunamadı.\n\n"
+    tickers = get_24h_tickers()
 
-        "⏸️ WAIT — İŞLEM YOK"
+    stablecoins = {
+        "USDCUSDT",
+        "FDUSDUSDT",
+        "TUSDUSDT",
+        "USDPUSDT",
+        "DAIUSDT"
+    }
+
+    usdt_coins = [
+        x for x in tickers
+        if x["symbol"].endswith("USDT")
+        and x["symbol"] not in stablecoins
+    ]
+
+    usdt_coins.sort(
+        key=lambda x: float(
+            x["quoteVolume"]
+        ),
+        reverse=True
     )
 
+    top_coins = usdt_coins[:40]
 
-telegram_url = (
-    f"https://api.telegram.org/"
-    f"bot{TOKEN}/sendMessage"
-)
+    alerts = []
 
-response = session.post(
-    telegram_url,
-    data={
-        "chat_id": CHAT_ID,
-        "text": message
-    },
-    timeout=20
-)
+    for coin in top_coins:
 
-response.raise_for_status()
+        result = analyze_coin(
+            coin["symbol"],
+            btc
+        )
 
-print("Gelişmiş piyasa taraması tamamlandı.")
+        if result:
+
+            alerts.append(result)
+
+    alerts.sort(
+        key=lambda x: (
+            x["score"],
+            x["rr"],
+            x["volume_ratio"]
+        ),
+        reverse=True
+    )
+
+    # =====================================================
+    # TELEGRAM
+    # =====================================================
+
+    if alerts:
+
+        message = (
+            "🚨 KRİPTO İŞLEM PLANI 🚨\n\n"
+
+            f"💵 Sermaye: "
+            f"${TOTAL_CAPITAL:.2f}\n"
+
+            f"💰 İşlem bütçesi: "
+            f"${TRADE_BUDGET:.2f}\n\n"
+
+            "🌐 BTC DURUMU\n"
+
+            f"Trend: {btc['direction']}\n"
+
+            f"RSI: {btc['rsi']:.1f}\n"
+
+            f"6s değişim: "
+            f"{btc['change_6h']:+.2f}%\n\n"
+
+        )
+
+        for alert in alerts[:MAX_ALERTS]:
+
+            p = alert["plan"]
+
+            reasons = "\n".join(
+                f"• {x}"
+                for x in alert["reasons"]
+            )
+
+            funding_text = (
+                f"{alert['funding']:+.4f}%"
+                if alert["funding"] is not None
+                else "Veri yok"
+            )
+
+            oi_text = (
+                f"{alert['open_interest']:,.2f}"
+                if alert["open_interest"] is not None
+                else "Veri yok"
+            )
+
+            message += (
+
+                f"{'🟢' if alert['direction'] == 'LONG' else '🔴'} "
+                f"{alert['direction']}\n"
+
+                f"🪙 {alert['symbol']}\n"
+
+                f"💰 Fiyat: "
+                f"{alert['price']:g}$\n\n"
+
+                f"📥 GİRİŞ\n"
+                f"{p['entry_low']:g} - "
+                f"{p['entry_high']:g}$\n\n"
+
+                f"🛑 STOP\n"
+                f"{p['stop']:g}$ "
+                f"(-{p['risk_percent']:.2f}%)\n\n"
+
+                f"🎯 TP1\n"
+                f"{p['tp1']:g}$\n\n"
+
+                f"🎯 TP2\n"
+                f"{p['tp2']:g}$\n\n"
+
+                f"💵 Ayrılan sermaye: "
+                f"${p['position_size']:.2f}\n"
+
+                f"⚡ Kaldıraç: "
+                f"{p['leverage']}x\n"
+
+                f"📊 Pozisyon: "
+                f"${p['notional']:.2f}\n"
+
+                f"🔻 Stop zararı: "
+                f"~${p['estimated_loss']:.2f}\n"
+
+                f"📈 TP1 kârı: "
+                f"~${p['tp1_profit']:.2f}\n"
+
+                f"📈 TP2 kârı: "
+                f"~${p['tp2_profit']:.2f}\n\n"
+
+                "📊 TEKNİK\n"
+
+                f"RSI: {alert['rsi']:.1f}\n"
+
+                f"Hacim: "
+                f"{alert['volume_ratio']:.1f}x\n"
+
+                f"Risk/Getiri: "
+                f"1:{alert['rr']:.2f}\n\n"
+
+                "📊 FUTURES\n"
+
+                f"Funding: "
+                f"{funding_text}\n"
+
+                f"Open Interest: "
+                f"{oi_text}\n\n"
+
+                "📌 NEDEN?\n"
+
+                f"{reasons}\n\n"
+
+                "⚠️ Otomatik emir açılmaz.\n"
+                "Manuel değerlendirme içindir.\n"
+
+                "━━━━━━━━━━━━━━\n\n"
+            )
+
+    else:
+
+        message = (
+
+            "🟢 PİYASA TARAMASI TAMAMLANDI\n\n"
+
+            f"💵 Sermaye: "
+            f"${TOTAL_CAPITAL:.2f}\n"
+
+            f"💰 İşlem bütçesi: "
+            f"${TRADE_BUDGET:.2f}\n\n"
+
+            "🌐 BTC DURUMU\n"
+
+            f"Trend: {btc['direction']}\n"
+
+            f"

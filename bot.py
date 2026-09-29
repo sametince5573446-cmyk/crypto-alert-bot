@@ -5,7 +5,7 @@ TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 def get_price(symbol):
-    url = "https://api.binance.com/api/v3/ticker/24hr"
+    url = "https://data-api.binance.vision/api/v3/ticker/24hr"
     response = requests.get(
         url,
         params={"symbol": symbol},

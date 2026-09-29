@@ -4,14 +4,52 @@ import requests
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
-url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+def get_price(symbol):
+    url = "https://api.binance.com/api/v3/ticker/24hr"
+    response = requests.get(
+        url,
+        params={"symbol": symbol},
+        timeout=15
+    )
+    response.raise_for_status()
+    return response.json()
 
-message = (
-    "🤖 CRYPTO ALERT BOT\n\n"
-    "✅ Sistem başarıyla çalışıyor!\n"
-    "📱 Telegram bağlantısı aktif.\n"
-    "📊 Bir sonraki aşamada Binance verilerini ekleyeceğiz."
-)
+coins = [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "ADAUSDT",
+    "AVAXUSDT",
+    "LINKUSDT",
+    "SUIUSDT",
+    "PEPEUSDT"
+]
+
+message = "📊 BINANCE PİYASA RAPORU\n\n"
+
+for coin in coins:
+    try:
+        data = get_price(coin)
+
+        price = float(data["lastPrice"])
+        change = float(data["priceChangePercent"])
+        volume = float(data["quoteVolume"])
+
+        emoji = "🟢" if change >= 0 else "🔴"
+
+        message += (
+            f"{emoji} {coin}\n"
+            f"Fiyat: {price:g}\n"
+            f"24s: {change:+.2f}%\n"
+            f"Hacim: ${volume:,.0f}\n\n"
+        )
+
+    except Exception as e:
+        message += f"⚠️ {coin}: Veri alınamadı\n\n"
+
+url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 
 response = requests.post(
     url,
@@ -23,4 +61,5 @@ response = requests.post(
 )
 
 response.raise_for_status()
-print("Telegram mesajı gönderildi.")
+
+print("Binance verileri Telegram'a gönderildi.")

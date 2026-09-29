@@ -1,6 +1,9 @@
 name: Crypto Alert Bot
 
 on:
+  schedule:
+    - cron: "*/5 * * * *"
+
   workflow_dispatch:
 
 jobs:
@@ -14,7 +17,7 @@ jobs:
       - name: Python kur
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Requests kur
         run: pip install requests

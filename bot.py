@@ -13,26 +13,30 @@ session = requests.Session()
 # SİSTEM AYARLARI
 # =========================
 
-TOTAL_CAPITAL = 100.0       # Toplam sermaye
-TRADE_BUDGET = 20.0         # Bir işlemde kullanılacak sermaye
-RISK_PERCENT = 1.0          # Toplam sermayenin %1'i maksimum risk
+TOTAL_CAPITAL = 100.0
+
+# Tek işlemde kullanılacak sermaye
+TRADE_BUDGET = 20.0
+
+# Maksimum kabul edilen sermaye riski
+RISK_PERCENT = 1.0
+
+# Aynı anda en fazla 5 sinyal gönder
+MAX_ALERTS = 5
+
 
 # =========================
-# BINANCE VERİLERİ
+# BINANCE
 # =========================
 
 def get_24h_tickers():
 
     url = f"{BASE_URL}/api/v3/ticker/24hr"
 
-    response = session.get(
-        url,
-        timeout=20
-    )
+    r = session.get(url, timeout=20)
+    r.raise_for_status()
 
-    response.raise_for_status()
-
-    return response.json()
+    return r.json()
 
 
 def get_klines(symbol):
@@ -42,127 +46,297 @@ def get_klines(symbol):
     params = {
         "symbol": symbol,
         "interval": "1h",
-        "limit": 50
+        "limit": 100
     }
 
-    response = session.get(
+    r = session.get(
         url,
         params=params,
         timeout=20
     )
 
-    response.raise_for_status()
+    r.raise_for_status()
 
-    return response.json()
+    return r.json()
 
 
 # =========================
-# İŞLEM PLANI HESAPLAMA
+# EMA
 # =========================
 
-def calculate_trade_plan(
-    price,
+def calculate_ema(values, period):
+
+    if len(values) < period:
+        return None
+
+    multiplier = 2 / (period + 1)
+
+    ema = statistics.mean(
+        values[:period]
+    )
+
+    for price in values[period:]:
+
+        ema = (
+            (price - ema)
+            * multiplier
+        ) + ema
+
+    return ema
+
+
+# =========================
+# RSI
+# =========================
+
+def calculate_rsi(values, period=14):
+
+    if len(values) < period + 1:
+        return None
+
+    gains = []
+    losses = []
+
+    for i in range(1, len(values)):
+
+        change = (
+            values[i] -
+            values[i - 1]
+        )
+
+        if change > 0:
+
+            gains.append(change)
+            losses.append(0)
+
+        else:
+
+            gains.append(0)
+            losses.append(abs(change))
+
+    avg_gain = statistics.mean(
+        gains[:period]
+    )
+
+    avg_loss = statistics.mean(
+        losses[:period]
+    )
+
+    for i in range(
+        period,
+        len(gains)
+    ):
+
+        avg_gain = (
+            (avg_gain * (period - 1))
+            + gains[i]
+        ) / period
+
+        avg_loss = (
+            (avg_loss * (period - 1))
+            + losses[i]
+        ) / period
+
+    if avg_loss == 0:
+        return 100
+
+    rs = avg_gain / avg_loss
+
+    return 100 - (
+        100 / (1 + rs)
+    )
+
+
+# =========================
+# İŞLEM PLANI
+# =========================
+
+def create_trade_plan(
     direction,
+    price,
+    support,
+    resistance,
     volatility
 ):
 
-    # Maksimum kabul edilen zarar
-    max_risk = TOTAL_CAPITAL * (RISK_PERCENT / 100)
-
-    # Volatiliteye göre stop mesafesi
-    stop_percent = max(
-        1.5,
-        min(volatility * 1.2, 4.0)
+    max_risk = (
+        TOTAL_CAPITAL *
+        RISK_PERCENT /
+        100
     )
 
     if direction == "LONG":
 
-        entry_low = price * 0.995
-        entry_high = price * 1.005
+        # Stop desteğin biraz altında
+        stop = support * 0.995
 
-        entry = (entry_low + entry_high) / 2
+        # Desteğin çok yakın olması durumunda
+        if stop >= price:
 
-        stop = entry * (
-            1 - stop_percent / 100
-        )
+            stop = price * (
+                1 - max(
+                    volatility * 0.8,
+                    1.5
+                ) / 100
+            )
 
+        entry_low = price * 0.997
+        entry_high = price * 1.003
+
+        entry = (
+            entry_low +
+            entry_high
+        ) / 2
+
+        risk_percent = (
+            (entry - stop)
+            / entry
+        ) * 100
+
+        # İlk hedef riskin 1.5 katı
         tp1 = entry * (
-            1 + (stop_percent * 1.5) / 100
+            1 +
+            (risk_percent * 1.5)
+            / 100
         )
 
+        # İkinci hedef riskin 2.5 katı
         tp2 = entry * (
-            1 + (stop_percent * 2.5) / 100
+            1 +
+            (risk_percent * 2.5)
+            / 100
         )
+
+        # Direnci aşırı geçmesin
+        if resistance > entry:
+
+            tp1 = min(
+                tp1,
+                resistance * 0.995
+            )
+
+            tp2 = max(
+                tp1 * 1.01,
+                min(
+                    tp2,
+                    resistance * 1.02
+                )
+            )
 
     else:
 
-        entry_low = price * 0.995
-        entry_high = price * 1.005
+        # SHORT
+        stop = resistance * 1.005
 
-        entry = (entry_low + entry_high) / 2
+        if stop <= price:
 
-        stop = entry * (
-            1 + stop_percent / 100
-        )
+            stop = price * (
+                1 +
+                max(
+                    volatility * 0.8,
+                    1.5
+                ) / 100
+            )
+
+        entry_low = price * 0.997
+        entry_high = price * 1.003
+
+        entry = (
+            entry_low +
+            entry_high
+        ) / 2
+
+        risk_percent = (
+            (stop - entry)
+            / entry
+        ) * 100
 
         tp1 = entry * (
-            1 - (stop_percent * 1.5) / 100
+            1 -
+            (risk_percent * 1.5)
+            / 100
         )
 
         tp2 = entry * (
-            1 - (stop_percent * 2.5) / 100
+            1 -
+            (risk_percent * 2.5)
+            / 100
         )
 
-    # Risk bazlı pozisyon büyüklüğü
-    risk_distance = abs(
-        entry - stop
-    )
+        if support < entry:
 
-    risk_ratio = (
-        risk_distance / entry
-    )
+            tp1 = max(
+                tp1,
+                support * 1.005
+            )
 
-    if risk_ratio == 0:
+            tp2 = min(
+                tp1 * 0.99,
+                max(
+                    tp2,
+                    support * 0.98
+                )
+            )
+
+    if risk_percent <= 0:
         return None
 
-    position_size = max_risk / risk_ratio
+    # Risk bazlı pozisyon büyüklüğü
+    position_size = (
+        max_risk /
+        (risk_percent / 100)
+    )
 
-    # İşlem bütçesini aşmasın
+    # Tek işlem bütçesini geçme
     position_size = min(
         position_size,
         TRADE_BUDGET
     )
 
-    # Şimdilik maksimum 5x
+    # Şimdilik kontrollü kaldıraç
     leverage = 1
 
-    if position_size < TRADE_BUDGET:
-        leverage = 1
-    else:
+    if risk_percent <= 2:
+
         leverage = 3
 
-    notional = position_size * leverage
+    elif risk_percent <= 3:
 
-    # Stop durumundaki yaklaşık zarar
-    stop_loss_dollar = (
-        notional * risk_ratio
+        leverage = 2
+
+    else:
+
+        leverage = 1
+
+    notional = (
+        position_size *
+        leverage
     )
 
-    # Kâr hesapları
-    tp1_ratio = abs(
-        tp1 - entry
-    ) / entry
+    estimated_loss = (
+        notional *
+        risk_percent /
+        100
+    )
 
-    tp2_ratio = abs(
+    tp1_percent = abs(
+        tp1 - entry
+    ) / entry * 100
+
+    tp2_percent = abs(
         tp2 - entry
-    ) / entry
+    ) / entry * 100
 
     tp1_profit = (
-        notional * tp1_ratio
+        notional *
+        tp1_percent /
+        100
     )
 
     tp2_profit = (
-        notional * tp2_ratio
+        notional *
+        tp2_percent /
+        100
     )
 
     return {
@@ -172,11 +346,11 @@ def calculate_trade_plan(
         "stop": stop,
         "tp1": tp1,
         "tp2": tp2,
-        "stop_percent": stop_percent,
+        "risk_percent": risk_percent,
         "position_size": position_size,
         "leverage": leverage,
         "notional": notional,
-        "risk": stop_loss_dollar,
+        "estimated_loss": estimated_loss,
         "tp1_profit": tp1_profit,
         "tp2_profit": tp2_profit
     }
@@ -192,25 +366,61 @@ def analyze_coin(symbol):
 
         candles = get_klines(symbol)
 
-        if len(candles) < 25:
+        if len(candles) < 50:
             return None
 
-        # SON KAPANMIŞ MUM
-        current = candles[-2]
+        # Son KAPANMIŞ mum
+        closed = candles[:-1]
 
-        # Önceki kapanmış mumlar
-        previous = candles[-22:-2]
-
-        current_open = float(current[1])
-        current_high = float(current[2])
-        current_low = float(current[3])
-        current_close = float(current[4])
-        current_volume = float(current[5])
-
-        previous_volumes = [
-            float(candle[5])
-            for candle in previous
+        closes = [
+            float(x[4])
+            for x in closed
         ]
+
+        highs = [
+            float(x[2])
+            for x in closed
+        ]
+
+        lows = [
+            float(x[3])
+            for x in closed
+        ]
+
+        volumes = [
+            float(x[5])
+            for x in closed
+        ]
+
+        price = closes[-1]
+
+        # EMA
+        ema9 = calculate_ema(
+            closes,
+            9
+        )
+
+        ema21 = calculate_ema(
+            closes,
+            21
+        )
+
+        # RSI
+        rsi = calculate_rsi(
+            closes,
+            14
+        )
+
+        if ema9 is None or ema21 is None:
+            return None
+
+        if rsi is None:
+            return None
+
+        # Hacim
+        current_volume = volumes[-1]
+
+        previous_volumes = volumes[-21:-1]
 
         average_volume = statistics.mean(
             previous_volumes
@@ -224,62 +434,179 @@ def analyze_coin(symbol):
             average_volume
         )
 
-        price_change = (
-            (current_close - current_open)
-            / current_open
-        ) * 100
+        # Son 20 mumdan destek / direnç
+        support = min(
+            lows[-20:]
+        )
 
-        # Mum volatilitesi
-        volatility = (
-            (current_high - current_low)
-            / current_close
-        ) * 100
+        resistance = max(
+            highs[-20:]
+        )
 
-        score = 0
+        # Volatilite
+        recent_ranges = []
 
-        # Fiyat hareketi
-        if abs(price_change) >= 2:
-            score += 1
+        for i in range(
+            -20,
+            0
+        ):
 
-        if abs(price_change) >= 4:
-            score += 1
+            candle_range = (
+                (highs[i] - lows[i])
+                / closes[i]
+            ) * 100
 
-        # Hacim
-        if volume_ratio >= 2:
-            score += 1
+            recent_ranges.append(
+                candle_range
+            )
 
-        if volume_ratio >= 4:
-            score += 1
+        volatility = statistics.mean(
+            recent_ranges
+        )
 
-        # Yeterli sinyal yoksa işlem yok
-        if score < 3:
+        # =====================
+        # PUANLAMA
+        # =====================
+
+        long_score = 0
+        short_score = 0
+
+        reasons_long = []
+        reasons_short = []
+
+        # EMA TREND
+        if ema9 > ema21:
+
+            long_score += 1
+            reasons_long.append(
+                "EMA9 > EMA21"
+            )
+
+        if ema9 < ema21:
+
+            short_score += 1
+            reasons_short.append(
+                "EMA9 < EMA21"
+            )
+
+        # FİYAT EMA ÜZERİNDE
+        if price > ema9:
+
+            long_score += 1
+            reasons_long.append(
+                "Fiyat EMA9 üzerinde"
+            )
+
+        if price < ema9:
+
+            short_score += 1
+            reasons_short.append(
+                "Fiyat EMA9 altında"
+            )
+
+        # RSI
+        if 50 <= rsi <= 68:
+
+            long_score += 1
+            reasons_long.append(
+                f"RSI uygun ({rsi:.1f})"
+            )
+
+        if 32 <= rsi <= 50:
+
+            short_score += 1
+            reasons_short.append(
+                f"RSI uygun ({rsi:.1f})"
+            )
+
+        # HACİM
+        if volume_ratio >= 1.5:
+
+            if price > ema9:
+
+                long_score += 1
+                reasons_long.append(
+                    f"Hacim {volume_ratio:.1f}x"
+                )
+
+            elif price < ema9:
+
+                short_score += 1
+                reasons_short.append(
+                    f"Hacim {volume_ratio:.1f}x"
+                )
+
+        # =====================
+        # YÖN BELİRLE
+        # =====================
+
+        if (
+            long_score >= 3 and
+            long_score > short_score
+        ):
+
+            direction = "LONG"
+            score = long_score
+            reasons = reasons_long
+
+        elif (
+            short_score >= 3 and
+            short_score > long_score
+        ):
+
+            direction = "SHORT"
+            score = short_score
+            reasons = reasons_short
+
+        else:
+
             return None
 
-        if price_change > 0:
-            direction = "LONG"
-            emoji = "🟢"
-        else:
-            direction = "SHORT"
-            emoji = "🔴"
-
-        trade_plan = calculate_trade_plan(
-            current_close,
+        plan = create_trade_plan(
             direction,
+            price,
+            support,
+            resistance,
             volatility
         )
 
-        if not trade_plan:
+        if plan is None:
+            return None
+
+        # Risk/Getiri kontrolü
+        risk = abs(
+            plan["entry"] -
+            plan["stop"]
+        )
+
+        reward = abs(
+            plan["tp1"] -
+            plan["entry"]
+        )
+
+        if risk == 0:
+            return None
+
+        rr = reward / risk
+
+        # TP1 için en az 1.3 R
+        if rr < 1.3:
             return None
 
         return {
             "symbol": symbol,
-            "price": current_close,
-            "change": price_change,
-            "volume_ratio": volume_ratio,
-            "score": score,
+            "price": price,
             "direction": direction,
-            "emoji": emoji,
-            "plan": trade_plan
+            "score": score,
+            "rsi": rsi,
+            "volume_ratio": volume_ratio,
+            "ema9": ema9,
+            "ema21": ema21,
+            "support": support,
+            "resistance": resistance,
+            "rr": rr,
+            "reasons": reasons,
+            "plan": plan
         }
 
     except Exception:
@@ -293,9 +620,18 @@ def analyze_coin(symbol):
 
 tickers = get_24h_tickers()
 
+stablecoins = {
+    "USDCUSDT",
+    "FDUSDUSDT",
+    "TUSDUSDT",
+    "USDPUSDT",
+    "DAIUSDT"
+}
+
 usdt_coins = [
     x for x in tickers
     if x["symbol"].endswith("USDT")
+    and x["symbol"] not in stablecoins
 ]
 
 usdt_coins.sort(
@@ -305,107 +641,103 @@ usdt_coins.sort(
     reverse=True
 )
 
-# İlk 40 yüksek hacimli coin
+# Yüksek hacimli ilk 40 coin
 top_coins = usdt_coins[:40]
 
 alerts = []
 
 for coin in top_coins:
 
-    symbol = coin["symbol"]
-
-    # Stablecoinleri çıkar
-    if symbol in [
-        "USDCUSDT",
-        "FDUSDUSDT",
-        "TUSDUSDT",
-        "USDPUSDT",
-        "DAIUSDT"
-    ]:
-        continue
-
-    result = analyze_coin(symbol)
+    result = analyze_coin(
+        coin["symbol"]
+    )
 
     if result:
         alerts.append(result)
 
 
-# Güçlüden zayıfa sırala
 alerts.sort(
     key=lambda x: (
         x["score"],
-        x["volume_ratio"],
-        abs(x["change"])
+        x["rr"],
+        x["volume_ratio"]
     ),
     reverse=True
 )
 
 
 # =========================
-# TELEGRAM MESAJI
+# TELEGRAM
 # =========================
 
 if alerts:
 
     message = (
-        "🚨 KRİPTO İŞLEM SİNYALİ 🚨\n\n"
-        f"💵 Toplam sermaye: ${TOTAL_CAPITAL:.2f}\n"
+        "🚨 KRİPTO İŞLEM PLANI 🚨\n\n"
+        f"💵 Sermaye: ${TOTAL_CAPITAL:.2f}\n"
         f"💰 İşlem bütçesi: ${TRADE_BUDGET:.2f}\n\n"
     )
 
-    for alert in alerts[:5]:
+    for alert in alerts[:MAX_ALERTS]:
 
-        plan = alert["plan"]
+        p = alert["plan"]
+
+        reasons = "\n".join(
+            f"• {x}"
+            for x in alert["reasons"]
+        )
 
         message += (
-            f"{alert['emoji']} {alert['direction']}\n"
+            f"{'🟢' if alert['direction'] == 'LONG' else '🔴'} "
+            f"{alert['direction']}\n"
             f"🪙 {alert['symbol']}\n"
-            f"💰 Güncel fiyat: "
-            f"{alert['price']:g}$\n\n"
+            f"💰 Fiyat: {alert['price']:g}$\n\n"
 
-            f"📥 Giriş: "
-            f"{plan['entry_low']:g} - "
-            f"{plan['entry_high']:g}$\n"
+            f"📥 GİRİŞ\n"
+            f"{p['entry_low']:g} - "
+            f"{p['entry_high']:g}$\n\n"
 
-            f"🛑 STOP: "
-            f"{plan['stop']:g}$ "
-            f"(-{plan['stop_percent']:.2f}%)\n"
+            f"🛑 STOP\n"
+            f"{p['stop']:g}$ "
+            f"(-{p['risk_percent']:.2f}%)\n\n"
 
-            f"🎯 TP1: "
-            f"{plan['tp1']:g}$\n"
+            f"🎯 TP1\n"
+            f"{p['tp1']:g}$\n\n"
 
-            f"🎯 TP2: "
-            f"{plan['tp2']:g}$\n\n"
+            f"🎯 TP2\n"
+            f"{p['tp2']:g}$\n\n"
 
-            f"💵 Ayrılacak sermaye: "
-            f"${plan['position_size']:.2f}\n"
+            f"💵 Ayrılan sermaye: "
+            f"${p['position_size']:.2f}\n"
 
             f"⚡ Kaldıraç: "
-            f"{plan['leverage']}x\n"
+            f"{p['leverage']}x\n"
 
             f"📊 Pozisyon büyüklüğü: "
-            f"${plan['notional']:.2f}\n"
+            f"${p['notional']:.2f}\n"
 
-            f"🔻 Stop olursa zarar: "
-            f"-${plan['risk']:.2f}\n"
+            f"🔻 Stop zararı: "
+            f"~${p['estimated_loss']:.2f}\n"
 
             f"📈 TP1 kârı: "
-            f"+${plan['tp1_profit']:.2f}\n"
+            f"~${p['tp1_profit']:.2f}\n"
 
             f"📈 TP2 kârı: "
-            f"+${plan['tp2_profit']:.2f}\n\n"
+            f"~${p['tp2_profit']:.2f}\n\n"
 
-            f"📊 1s değişim: "
-            f"{alert['change']:+.2f}%\n"
-
-            f"🔥 Hacim: normalin "
-            f"{alert['volume_ratio']:.1f} katı\n"
-
+            f"📊 RSI: {alert['rsi']:.1f}\n"
+            f"🔥 Hacim: {alert['volume_ratio']:.1f}x\n"
+            f"📐 Risk/Getiri: "
+            f"1:{alert['rr']:.2f}\n"
             f"⭐ Sinyal: "
             f"{alert['score']}/4\n\n"
 
-            "⚠️ Bu bir otomatik emir değildir.\n"
-            "İşlemi manuel olarak değerlendirin.\n\n"
+            f"📌 NEDEN?\n"
+            f"{reasons}\n\n"
+
+            "⚠️ Otomatik emir açılmaz.\n"
+            "İşlem manuel değerlendirilmelidir.\n"
+
             "━━━━━━━━━━━━━━\n\n"
         )
 
@@ -415,16 +747,15 @@ else:
         "🟢 PİYASA TARAMASI TAMAMLANDI\n\n"
         f"💵 Sermaye: ${TOTAL_CAPITAL:.2f}\n"
         f"💰 İşlem bütçesi: ${TRADE_BUDGET:.2f}\n\n"
-        "Şu anda belirlenen kriterleri "
-        "sağlayan güçlü bir işlem sinyali "
-        "tespit edilmedi.\n\n"
-        "⏸️ İŞLEM YOK"
+
+        "EMA + RSI + hacim + "
+        "destek/direnç + risk/getiri "
+        "kriterlerini sağlayan yeterince "
+        "güçlü bir sinyal bulunamadı.\n\n"
+
+        "⏸️ WAIT — İŞLEM YOK"
     )
 
-
-# =========================
-# TELEGRAM GÖNDER
-# =========================
 
 telegram_url = (
     f"https://api.telegram.org/"
@@ -442,4 +773,4 @@ response = session.post(
 
 response.raise_for_status()
 
-print("İşlem planlı piyasa taraması tamamlandı.")
+print("Gelişmiş piyasa taraması tamamlandı.")

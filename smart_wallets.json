@@ -1,0 +1,47 @@
+{
+  "2A2tYmqjsTsj8nsacV3e3YtniaX3GE27ipS6jPuiMBeN": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790781372,
+    "tokens": {
+      "CbVTvRQY7aRpXfUKVMW2BZ53mtaUtWgo3KqjU6oYpump": {
+        "symbol": "SAID",
+        "entry_move": 22.78,
+        "entry_time": 1790781372,
+        "success": false
+      }
+    }
+  },
+  "9vodS8x3VnCrm8KZUhsavbb6J6Z9ZhmuZ6PBarSwgTMw": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790781372,
+    "tokens": {
+      "CbVTvRQY7aRpXfUKVMW2BZ53mtaUtWgo3KqjU6oYpump": {
+        "symbol": "SAID",
+        "entry_move": 22.78,
+        "entry_time": 1790781372,
+        "success": false
+      }
+    }
+  },
+  "EMwMBULQzQEUERozWsMAi8YMYUxCE6xdh6hU3FAcS75m": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790781372,
+    "tokens": {
+      "CbVTvRQY7aRpXfUKVMW2BZ53mtaUtWgo3KqjU6oYpump": {
+        "symbol": "SAID",
+        "entry_move": 22.78,
+        "entry_time": 1790781372,
+        "success": false
+      }
+    }
+  }
+}

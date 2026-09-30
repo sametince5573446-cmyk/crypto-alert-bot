@@ -203,5 +203,35 @@
     "url": "https://dexscreener.com/solana/7j1irjnx1vxk23nnmkzgsmzl2ua43pcwp59mjzgjmzvg",
     "last_seen": 1790779231,
     "last_alert": 0
+  },
+  "BBAqRYh9xK8FUu66Xh4C91W6JFFZdLm5qQydsS8oLkes": {
+    "symbol": "SAID",
+    "name": "Super Paid",
+    "token_address": "CbVTvRQY7aRpXfUKVMW2BZ53mtaUtWgo3KqjU6oYpump",
+    "pair_address": "BBAqRYh9xK8FUu66Xh4C91W6JFFZdLm5qQydsS8oLkes",
+    "change_5m": -9.96,
+    "change_1h": 22.78,
+    "change_6h": 148.0,
+    "change_24h": 148.0,
+    "volume_5m": 36578.97,
+    "volume_1h": 557240.41,
+    "buys_5m": 512,
+    "sells_5m": 104,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 10978,
+    "sells_1h": 1226,
+    "liquidity": 42593.53,
+    "pair_age_minutes": 66.55,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/superpaidsol",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/bbaqryh9xk8fuu66xh4c91w6jffzdlm5qqydss8olkes",
+    "last_seen": 1790781372,
+    "last_alert": 0
   }
 }

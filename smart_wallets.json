@@ -328,5 +328,65 @@
         "success": false
       }
     }
+  },
+  "7SBggSLQ27BpXKq71SP7EhYjkizTCGFBwaNaDyx38PLo": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790808532,
+    "tokens": {
+      "9jAVyE3sTnVoWXLK4eorcU7uV6zhh5Q9WapdcstAYtas": {
+        "symbol": "GENESIS",
+        "entry_move": 12.99,
+        "entry_time": 1790808532,
+        "success": false
+      }
+    }
+  },
+  "Eyt7egbh7Dy5K5n6HSfTS6pjgW8XoyvhqSoUzMKWxk6F": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790808532,
+    "tokens": {
+      "9jAVyE3sTnVoWXLK4eorcU7uV6zhh5Q9WapdcstAYtas": {
+        "symbol": "GENESIS",
+        "entry_move": 12.99,
+        "entry_time": 1790808532,
+        "success": false
+      }
+    }
+  },
+  "BuGacsFWAqk8LZk7SPcJ2iqdGdUnPyTqvwSVUU48ao5o": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790808532,
+    "tokens": {
+      "9jAVyE3sTnVoWXLK4eorcU7uV6zhh5Q9WapdcstAYtas": {
+        "symbol": "GENESIS",
+        "entry_move": 12.99,
+        "entry_time": 1790808532,
+        "success": false
+      }
+    }
+  },
+  "GydEP9GRPuLrhey8EQNnnf1u7qzcDWzLb1enyTkgKkeP": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790808532,
+    "tokens": {
+      "9jAVyE3sTnVoWXLK4eorcU7uV6zhh5Q9WapdcstAYtas": {
+        "symbol": "GENESIS",
+        "entry_move": 12.99,
+        "entry_time": 1790808532,
+        "success": false
+      }
+    }
   }
 }

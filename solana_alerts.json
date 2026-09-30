@@ -658,20 +658,20 @@
     "name": "Genesis",
     "token_address": "9jAVyE3sTnVoWXLK4eorcU7uV6zhh5Q9WapdcstAYtas",
     "pair_address": "GntVxwXdqX35325f8M95SxxZMF7vzgt9wFMrH8SmdMrr",
-    "change_5m": 4.74,
-    "change_1h": 4.19,
-    "change_6h": 4.19,
-    "change_24h": 4.19,
-    "volume_5m": 3665.94,
-    "volume_1h": 92470.44,
-    "buys_5m": 35,
-    "sells_5m": 23,
+    "change_5m": 16.19,
+    "change_1h": 12.99,
+    "change_6h": 12.99,
+    "change_24h": 12.99,
+    "volume_5m": 118.79,
+    "volume_1h": 93808.29,
+    "buys_5m": 7,
+    "sells_5m": 2,
     "buys_15m": 0,
     "sells_15m": 0,
-    "buys_1h": 310,
-    "sells_1h": 308,
-    "liquidity": 18564.0,
-    "pair_age_minutes": 31.25,
+    "buys_1h": 335,
+    "sells_1h": 329,
+    "liquidity": 19477.08,
+    "pair_age_minutes": 43.083333333333336,
     "boost_active": 0,
     "socials": [
       {
@@ -680,7 +680,37 @@
       }
     ],
     "url": "https://dexscreener.com/solana/gntvxwxdqx35325f8m95sxxzmf7vzgt9wfmrh8smdmrr",
-    "last_seen": 1790807822,
+    "last_seen": 1790808533,
+    "last_alert": 0
+  },
+  "ADUJ4UgHrMqMhsGEE8bSHaEomGAHuKpDFtzmhcxrpHX7": {
+    "symbol": "KARDASHEV",
+    "name": "Kardashev Research",
+    "token_address": "GacgmKkuqxLfL7qox6YMeP7SWHdC1ayMsLUJcuKB5huf",
+    "pair_address": "ADUJ4UgHrMqMhsGEE8bSHaEomGAHuKpDFtzmhcxrpHX7",
+    "change_5m": 0.23,
+    "change_1h": 24.32,
+    "change_6h": 505.0,
+    "change_24h": 1435.0,
+    "volume_5m": 63.78,
+    "volume_1h": 13682.12,
+    "buys_5m": 2,
+    "sells_5m": 1,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 64,
+    "sells_1h": 46,
+    "liquidity": 25435.34,
+    "pair_age_minutes": 6247.916666666667,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/Kardashev_AI",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/aduj4ughrmqmhsgee8bshaeomgahukpdftzmhcxrphx7",
+    "last_seen": 1790808534,
     "last_alert": 0
   }
 }

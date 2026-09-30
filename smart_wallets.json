@@ -43,5 +43,35 @@
         "success": false
       }
     }
+  },
+  "6m1CCJ3sgJVMLYHDPeHttHVLyhZ5SpNbCCc9jwGsjCXQ": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790782808,
+    "tokens": {
+      "BRJmyGPcHmNxLvFrTquYRTigUHuhirs3WQSh4bpLtS8H": {
+        "symbol": "ENERGY",
+        "entry_move": 18.97,
+        "entry_time": 1790782808,
+        "success": false
+      }
+    }
+  },
+  "5yeWDDsdSzqepSawsDKfxMqPfPLJwU9xrHBqbRAfc86d": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790782808,
+    "tokens": {
+      "BRJmyGPcHmNxLvFrTquYRTigUHuhirs3WQSh4bpLtS8H": {
+        "symbol": "ENERGY",
+        "entry_move": 18.97,
+        "entry_time": 1790782808,
+        "success": false
+      }
+    }
   }
 }

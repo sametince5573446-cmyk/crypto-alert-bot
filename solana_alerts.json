@@ -233,5 +233,35 @@
     "url": "https://dexscreener.com/solana/bbaqryh9xk8fuu66xh4c91w6jffzdlm5qqydss8olkes",
     "last_seen": 1790781372,
     "last_alert": 0
+  },
+  "4aRbBUVsAHyurhK4YeCHG3JpWStgHuJko3jtAkMd1eFm": {
+    "symbol": "ENERGY",
+    "name": "Energy Coin",
+    "token_address": "BRJmyGPcHmNxLvFrTquYRTigUHuhirs3WQSh4bpLtS8H",
+    "pair_address": "4aRbBUVsAHyurhK4YeCHG3JpWStgHuJko3jtAkMd1eFm",
+    "change_5m": 42.46,
+    "change_1h": 18.97,
+    "change_6h": 18.97,
+    "change_24h": 18.97,
+    "volume_5m": 24959.92,
+    "volume_1h": 406410.14,
+    "buys_5m": 199,
+    "sells_5m": 165,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 3390,
+    "sells_1h": 2897,
+    "liquidity": 21966.64,
+    "pair_age_minutes": 37.53333333333333,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/solOlympos/status/2105316139177841150?s=20",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/4arbbuvsahyurhk4yechg3jpwstghujko3jtakmd1efm",
+    "last_seen": 1790782809,
+    "last_alert": 0
   }
 }

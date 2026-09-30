@@ -2,104 +2,152 @@ import os
 import json
 import time
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime
 
 import requests
 
 
 # =========================================================
-# AYARLAR
+# TELEGRAM
 # =========================================================
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
+
+# =========================================================
+# API
+# =========================================================
+
 DEX_BASE = "https://api.dexscreener.com"
 
-STATE_FILE = "solana_alerts.json"
+SOLANA_RPC = "https://api.mainnet-beta.solana.com"
 
-# Kaç token taranacak
+
+# =========================================================
+# DOSYALAR
+# =========================================================
+
+STATE_FILE = "solana_alerts.json"
+WALLET_FILE = "smart_wallets.json"
+
+
+# =========================================================
+# GENEL AYARLAR
+# =========================================================
+
 MAX_TOKENS = 100
 
-# Aynı coin tekrar kaç saat içinde alarm vermesin?
 REPEAT_HOURS = 24
 
-# Minimum likidite
 MIN_LIQUIDITY = 10000
 
-# Çoktan yükselmiş coinleri ele
-MAX_1H_MOVE = 25
-MAX_24H_MOVE = 40
-
-# Minimum erken hareket
-MIN_1H_MOVE = 3
-
-# Minimum hacim
 MIN_1H_VOLUME = 5000
 
-# Hacim ivmesi
+MIN_1H_MOVE = 3
+
+MAX_1H_MOVE = 25
+
+MAX_24H_MOVE = 40
+
 MIN_VOLUME_ACCELERATION = 2.5
 
-# Minimum alıcı üstünlüğü
-MIN_BUY_SELL_RATIO = 1.20
-
-# Minimum puan
 MIN_SCORE = 7
 
-# Çok yeni pair için bekleme
 MIN_PAIR_AGE_MINUTES = 5
 
 
+# =========================================================
+# SMART MONEY
+# =========================================================
+
+# Her pair için incelenecek maksimum işlem
+MAX_WALLET_TRANSACTIONS = 20
+
+# Bir cüzdanın takip listesine girebilmesi için
+MIN_WALLET_SCORE = 5
+
+# Başarılı erken giriş sayısı
+SMART_SUCCESS_THRESHOLD = 2
+
+# Bir tokenin erken alıcısı sayılacağı maksimum yükseliş
+EARLY_BUY_MAX_MOVE = 15
+
+# Daha sonra token bu seviyeye ulaşırsa başarılı giriş say
+SUCCESS_MOVE = 30
+
+# Aynı cüzdanın çok fazla işlem yapmasını önle
+WALLET_COOLDOWN_SECONDS = 300
+
+
 session = requests.Session()
+
 session.headers.update({
-    "User-Agent": "Mozilla/5.0 CryptoAlertBot/1.0"
+    "User-Agent": "Mozilla/5.0 SolanaRadar/1.0"
 })
 
 
 # =========================================================
-# GENEL FONKSİYONLAR
+# GENEL YARDIMCI
 # =========================================================
 
 def safe_float(value, default=None):
+
     try:
+
         if value is None:
             return default
+
         return float(value)
+
     except Exception:
+
         return default
 
 
 def safe_int(value, default=0):
+
     try:
+
         if value is None:
             return default
+
         return int(value)
+
     except Exception:
+
         return default
 
 
 def now_ts():
+
     return int(time.time())
 
 
 def format_money(value):
+
     if value is None:
         return "VERİ YOK"
 
     if value >= 1_000_000:
+
         return f"${value / 1_000_000:.2f}M"
 
     if value >= 1_000:
+
         return f"${value / 1_000:.1f}K"
 
     return f"${value:.0f}"
 
 
 def format_percent(value):
+
     if value is None:
+
         return "VERİ YOK"
 
     sign = "+" if value >= 0 else ""
+
     return f"{sign}{value:.1f}%"
 
 
@@ -108,8 +156,17 @@ def format_percent(value):
 # =========================================================
 
 def send_telegram(message):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram bilgileri bulunamadı.")
+
+    if not TELEGRAM_BOT_TOKEN:
+
+        print("TELEGRAM_BOT_TOKEN yok.")
+
+        return False
+
+    if not TELEGRAM_CHAT_ID:
+
+        print("TELEGRAM_CHAT_ID yok.")
+
         return False
 
     url = (
@@ -118,12 +175,16 @@ def send_telegram(message):
     )
 
     data = {
+
         "chat_id": TELEGRAM_CHAT_ID,
+
         "text": message,
+
         "disable_web_page_preview": True
     }
 
     try:
+
         response = session.post(
             url,
             json=data,
@@ -131,88 +192,123 @@ def send_telegram(message):
         )
 
         if response.status_code == 200:
+
             return True
 
-        print("Telegram hata:", response.text)
+        print(
+            "Telegram hata:",
+            response.text
+        )
+
         return False
 
     except Exception as e:
-        print("Telegram bağlantı hatası:", e)
+
+        print(
+            "Telegram bağlantı hatası:",
+            e
+        )
+
         return False
 
 
 # =========================================================
-# STATE
+# DOSYA OKUMA / YAZMA
 # =========================================================
 
-def load_state():
-    if not os.path.exists(STATE_FILE):
+def load_json(filename):
+
+    if not os.path.exists(filename):
+
         return {}
 
     try:
+
         with open(
-            STATE_FILE,
+            filename,
             "r",
             encoding="utf-8"
-        ) as f:
-            return json.load(f)
+        ) as file:
+
+            return json.load(file)
 
     except Exception:
+
         return {}
 
 
-def save_state(state):
-    with open(
-        STATE_FILE,
-        "w",
-        encoding="utf-8"
-    ) as f:
-        json.dump(
-            state,
-            f,
-            ensure_ascii=False,
-            indent=2
+def save_json(filename, data):
+
+    try:
+
+        with open(
+            filename,
+            "w",
+            encoding="utf-8"
+        ) as file:
+
+            json.dump(
+                data,
+                file,
+                ensure_ascii=False,
+                indent=2
+            )
+
+    except Exception as e:
+
+        print(
+            "Dosya kayıt hatası:",
+            filename,
+            e
         )
 
 
 # =========================================================
-# DEX SCREENER API
+# DEXSCREENER
 # =========================================================
 
 def get_latest_profiles():
-    url = f"{DEX_BASE}/token-profiles/latest/v1"
+
+    url = (
+        f"{DEX_BASE}/token-profiles/latest/v1"
+    )
 
     try:
+
         response = session.get(
             url,
             timeout=20
         )
 
         if response.status_code != 200:
-            print("Token profiles hata:", response.status_code)
+
             return []
 
         data = response.json()
 
         if not isinstance(data, list):
+
             return []
 
         return data
 
     except Exception as e:
-        print("Profiles hata:", e)
+
+        print(
+            "Profiles hata:",
+            e
+        )
+
         return []
 
 
-def get_token_pairs(token_addresses):
-    """
-    Aynı anda maksimum 30 token sorgulanır.
-    """
+def get_token_pairs(addresses):
 
-    if not token_addresses:
+    if not addresses:
+
         return []
 
-    address_text = ",".join(token_addresses)
+    address_text = ",".join(addresses)
 
     url = (
         f"{DEX_BASE}/tokens/v1/solana/"
@@ -220,37 +316,38 @@ def get_token_pairs(token_addresses):
     )
 
     try:
+
         response = session.get(
             url,
             timeout=20
         )
 
         if response.status_code != 200:
-            print(
-                "Token pairs hata:",
-                response.status_code
-            )
+
             return []
 
         data = response.json()
 
         if not isinstance(data, list):
+
             return []
 
         return data
 
     except Exception as e:
-        print("Token pairs hata:", e)
+
+        print(
+            "Token pair hata:",
+            e
+        )
+
         return []
 
 
 def get_exact_pair(pair_address):
-    """
-    Son kontrolde aynı pair adresini tekrar sorgular.
-    Böylece başka pair'in verisiyle karışma ihtimali azalır.
-    """
 
     if not pair_address:
+
         return None
 
     url = (
@@ -259,12 +356,14 @@ def get_exact_pair(pair_address):
     )
 
     try:
+
         response = session.get(
             url,
             timeout=20
         )
 
         if response.status_code != 200:
+
             return None
 
         data = response.json()
@@ -272,74 +371,101 @@ def get_exact_pair(pair_address):
         pairs = data.get("pairs")
 
         if not pairs:
+
             return None
 
         return pairs[0]
 
-    except Exception as e:
-        print("Exact pair hata:", e)
+    except Exception:
+
         return None
 
 
-# =========================================================
-# PAIR SEÇİMİ
-# =========================================================
-
 def choose_best_pair(pairs):
-    """
-    Aynı tokenın birden fazla pool'u olabilir.
-    En yüksek likiditeli Solana pair seçilir.
-    """
 
     if not pairs:
+
         return None
 
     solana_pairs = [
-        p for p in pairs
-        if p.get("chainId") == "solana"
+
+        pair
+        for pair in pairs
+
+        if pair.get("chainId") == "solana"
+
     ]
 
     if not solana_pairs:
+
         return None
 
     best = None
+
     best_liquidity = -1
 
     for pair in solana_pairs:
+
         liquidity = safe_float(
-            pair.get("liquidity", {}).get("usd"),
+            (pair.get("liquidity") or {}).get("usd"),
             0
         )
 
         if liquidity > best_liquidity:
+
             best_liquidity = liquidity
+
             best = pair
 
     return best
 
 
 # =========================================================
-# VERİ ÇIKARMA
+# PAIR VERİSİ
 # =========================================================
 
 def extract_pair_data(pair):
+
     if not pair:
+
         return None
 
-    price_change = pair.get("priceChange") or {}
-    volume = pair.get("volume") or {}
-    txns = pair.get("txns") or {}
-    liquidity_data = pair.get("liquidity") or {}
+    price_change = (
+        pair.get("priceChange") or {}
+    )
 
-    base_token = pair.get("baseToken") or {}
+    volume = (
+        pair.get("volume") or {}
+    )
 
-    symbol = base_token.get("symbol") or "UNKNOWN"
-    name = base_token.get("name") or symbol
+    txns = (
+        pair.get("txns") or {}
+    )
 
-    pair_address = pair.get("pairAddress")
+    liquidity_data = (
+        pair.get("liquidity") or {}
+    )
 
-    price_usd = safe_float(
-        pair.get("priceUsd")
+    base_token = (
+        pair.get("baseToken") or {}
+    )
+
+    symbol = (
+        base_token.get("symbol")
+        or "UNKNOWN"
+    )
+
+    name = (
+        base_token.get("name")
+        or symbol
+    )
+
+    pair_address = pair.get(
+        "pairAddress"
+    )
+
+    token_address = base_token.get(
+        "address"
     )
 
     change_5m = safe_float(
@@ -366,46 +492,34 @@ def extract_pair_data(pair):
         volume.get("h1")
     )
 
-    volume_6h = safe_float(
-        volume.get("h6")
-    )
-
-    volume_24h = safe_float(
-        volume.get("h24")
-    )
-
     tx_5m = txns.get("m5") or {}
+
     tx_15m = txns.get("m15") or {}
+
     tx_1h = txns.get("h1") or {}
 
     buys_5m = safe_int(
-        tx_5m.get("buys"),
-        0
+        tx_5m.get("buys")
     )
 
     sells_5m = safe_int(
-        tx_5m.get("sells"),
-        0
+        tx_5m.get("sells")
     )
 
     buys_15m = safe_int(
-        tx_15m.get("buys"),
-        0
+        tx_15m.get("buys")
     )
 
     sells_15m = safe_int(
-        tx_15m.get("sells"),
-        0
+        tx_15m.get("sells")
     )
 
     buys_1h = safe_int(
-        tx_1h.get("buys"),
-        0
+        tx_1h.get("buys")
     )
 
     sells_1h = safe_int(
-        tx_1h.get("sells"),
-        0
+        tx_1h.get("sells")
     )
 
     liquidity = safe_float(
@@ -419,67 +533,81 @@ def extract_pair_data(pair):
     pair_age_minutes = None
 
     if pair_created_at:
-        try:
-            created_ms = int(pair_created_at)
 
-            # DEX timestamp milisaniye
-            created_seconds = created_ms / 1000
+        try:
 
             pair_age_minutes = (
-                now_ts() - created_seconds
+                now_ts()
+                - (int(pair_created_at) / 1000)
             ) / 60
 
         except Exception:
-            pair_age_minutes = None
 
-    info = pair.get("info") or {}
+            pass
 
-    websites = info.get("websites") or []
-    socials = info.get("socials") or []
-
-    boosts = pair.get("boosts") or {}
+    boosts = (
+        pair.get("boosts") or {}
+    )
 
     boost_active = safe_int(
-        boosts.get("active"),
-        0
+        boosts.get("active")
+    )
+
+    info = (
+        pair.get("info") or {}
+    )
+
+    socials = (
+        info.get("socials") or []
     )
 
     return {
+
         "symbol": symbol,
+
         "name": name,
+
+        "token_address": token_address,
+
         "pair_address": pair_address,
 
-        "price_usd": price_usd,
-
         "change_5m": change_5m,
+
         "change_1h": change_1h,
+
         "change_6h": change_6h,
+
         "change_24h": change_24h,
 
         "volume_5m": volume_5m,
+
         "volume_1h": volume_1h,
-        "volume_6h": volume_6h,
-        "volume_24h": volume_24h,
 
         "buys_5m": buys_5m,
+
         "sells_5m": sells_5m,
 
         "buys_15m": buys_15m,
+
         "sells_15m": sells_15m,
 
         "buys_1h": buys_1h,
+
         "sells_1h": sells_1h,
 
         "liquidity": liquidity,
 
-        "pair_age_minutes": pair_age_minutes,
+        "pair_age_minutes":
+            pair_age_minutes,
 
-        "boost_active": boost_active,
+        "boost_active":
+            boost_active,
 
-        "websites": websites,
-        "socials": socials,
+        "socials":
+            socials,
 
-        "url": pair.get("url")
+        "url":
+            pair.get("url")
     }
 
 
@@ -488,24 +616,22 @@ def extract_pair_data(pair):
 # =========================================================
 
 def ratio(buys, sells):
+
     if sells <= 0:
+
         if buys > 0:
-            return 99.0
+
+            return 99
+
         return None
 
     return buys / sells
 
 
-def calculate_volume_acceleration(volume_5m, volume_1h):
-    """
-    5 dakikalık hacmi 1 saate yayarak yaklaşık hız ölçer.
-
-    Örneğin:
-    5m = 10K
-    1h = 60K
-
-    10K * 12 / 60K = 2x
-    """
+def volume_acceleration(
+    volume_5m,
+    volume_1h
+):
 
     if volume_5m is None:
         return None
@@ -522,89 +648,682 @@ def calculate_volume_acceleration(volume_5m, volume_1h):
 
 
 # =========================================================
-# STATE'TEN HACİM/LİKİDİTE DEĞİŞİMİ
+# SOLANA RPC
 # =========================================================
 
-def calculate_state_changes(old, current):
+def rpc_call(
+    method,
+    params
+):
+
+    payload = {
+
+        "jsonrpc": "2.0",
+
+        "id": 1,
+
+        "method": method,
+
+        "params": params
+    }
+
+    try:
+
+        response = session.post(
+            SOLANA_RPC,
+            json=payload,
+            timeout=25
+        )
+
+        if response.status_code != 200:
+
+            return None
+
+        data = response.json()
+
+        return data.get("result")
+
+    except Exception as e:
+
+        print(
+            "RPC hata:",
+            e
+        )
+
+        return None
+
+
+# =========================================================
+# PAIR İŞLEMLERİ
+# =========================================================
+
+def get_pair_signatures(
+    pair_address,
+    limit=MAX_WALLET_TRANSACTIONS
+):
+
+    return rpc_call(
+
+        "getSignaturesForAddress",
+
+        [
+            pair_address,
+
+            {
+                "limit": limit,
+
+                "commitment": "confirmed"
+            }
+        ]
+    )
+
+
+def get_transaction(signature):
+
+    return rpc_call(
+
+        "getTransaction",
+
+        [
+            signature,
+
+            {
+                "encoding": "jsonParsed",
+
+                "commitment": "confirmed",
+
+                "maxSupportedTransactionVersion": 0
+            }
+        ]
+    )
+
+
+# =========================================================
+# İŞLEMDEKİ SIGNER
+# =========================================================
+
+def get_transaction_signer(tx):
+
+    try:
+
+        message = (
+            tx["transaction"]
+            ["message"]
+        )
+
+        account_keys = (
+            message
+            ["accountKeys"]
+        )
+
+        for account in account_keys:
+
+            if account.get(
+                "signer"
+            ):
+
+                return account.get(
+                    "pubkey"
+                )
+
+    except Exception:
+
+        pass
+
+    return None
+
+
+# =========================================================
+# TOKEN BALANCE DEĞİŞİMİ
+# =========================================================
+
+def token_balance_change(
+    tx,
+    token_address,
+    owner
+):
+
+    try:
+
+        meta = tx.get("meta")
+
+        if not meta:
+
+            return 0
+
+        pre = (
+            meta.get(
+                "preTokenBalances"
+            )
+            or []
+        )
+
+        post = (
+            meta.get(
+                "postTokenBalances"
+            )
+            or []
+        )
+
+        pre_amount = 0
+
+        post_amount = 0
+
+        for item in pre:
+
+            if (
+                item.get("mint")
+                == token_address
+                and item.get("owner")
+                == owner
+            ):
+
+                ui = (
+                    item.get(
+                        "uiTokenAmount"
+                    )
+                    or {}
+                )
+
+                pre_amount += (
+                    safe_float(
+                        ui.get(
+                            "uiAmount"
+                        ),
+                        0
+                    )
+                )
+
+        for item in post:
+
+            if (
+                item.get("mint")
+                == token_address
+                and item.get("owner")
+                == owner
+            ):
+
+                ui = (
+                    item.get(
+                        "uiTokenAmount"
+                    )
+                    or {}
+                )
+
+                post_amount += (
+                    safe_float(
+                        ui.get(
+                            "uiAmount"
+                        ),
+                        0
+                    )
+                )
+
+        return post_amount - pre_amount
+
+    except Exception:
+
+        return 0
+
+
+# =========================================================
+# ERKEN ALICI CÜZDANLARI
+# =========================================================
+
+def discover_wallets(data):
+
+    pair_address = data.get(
+        "pair_address"
+    )
+
+    token_address = data.get(
+        "token_address"
+    )
+
+    if not pair_address:
+        return []
+
+    if not token_address:
+        return []
+
+    signatures = get_pair_signatures(
+        pair_address
+    )
+
+    if not signatures:
+
+        return []
+
+    wallets = []
+
+    checked = 0
+
+    for signature_data in signatures:
+
+        signature = signature_data.get(
+            "signature"
+        )
+
+        if not signature:
+
+            continue
+
+        tx = get_transaction(
+            signature
+        )
+
+        if not tx:
+
+            continue
+
+        signer = get_transaction_signer(
+            tx
+        )
+
+        if not signer:
+
+            continue
+
+        change = token_balance_change(
+            tx,
+            token_address,
+            signer
+        )
+
+        # Token miktarı artıyorsa
+        # olası alıcı
+        if change > 0:
+
+            wallets.append({
+                "wallet": signer,
+
+                "signature": signature,
+
+                "change": change,
+
+                "block_time":
+                    tx.get(
+                        "blockTime"
+                    )
+            })
+
+        checked += 1
+
+        if checked >= MAX_WALLET_TRANSACTIONS:
+
+            break
+
+        time.sleep(0.15)
+
+    return wallets
+
+
+# =========================================================
+# SMART MONEY STATE
+# =========================================================
+
+def get_wallet_record(
+    wallets,
+    address
+):
+
+    if address not in wallets:
+
+        wallets[address] = {
+
+            "score": 0,
+
+            "early_buys": 0,
+
+            "successful_buys": 0,
+
+            "coins_seen": 0,
+
+            "last_seen": 0,
+
+            "tokens": {}
+        }
+
+    return wallets[address]
+
+
+# =========================================================
+# CÜZDANLARI ÖĞREN
+# =========================================================
+
+def learn_wallets(
+    data,
+    wallets,
+    state
+):
+
+    discovered = discover_wallets(
+        data
+    )
+
+    if not discovered:
+
+        return []
+
+    token_address = data[
+        "token_address"
+    ]
+
+    symbol = data[
+        "symbol"
+    ]
+
+    current_move = data[
+        "change_1h"
+    ]
+
+    if current_move is None:
+
+        current_move = 0
+
+    smart_now = []
+
+    for item in discovered:
+
+        wallet = item[
+            "wallet"
+        ]
+
+        record = get_wallet_record(
+            wallets,
+            wallet
+        )
+
+        # Cooldown
+        if (
+            now_ts()
+            - record.get(
+                "last_seen",
+                0
+            )
+            < WALLET_COOLDOWN_SECONDS
+        ):
+
+            continue
+
+        record["last_seen"] = now_ts()
+
+        record["coins_seen"] = (
+            record.get(
+                "coins_seen",
+                0
+            ) + 1
+        )
+
+        record["early_buys"] = (
+            record.get(
+                "early_buys",
+                0
+            ) + 1
+        )
+
+        # İlk giriş kaydı
+        if token_address not in record[
+            "tokens"
+        ]:
+
+            record[
+                "tokens"
+            ][token_address] = {
+
+                "symbol": symbol,
+
+                "entry_move":
+                    current_move,
+
+                "entry_time":
+                    now_ts(),
+
+                "success": False
+            }
+
+        # İlk etapta erken alıcı
+        if current_move <= EARLY_BUY_MAX_MOVE:
+
+            record["score"] = (
+                record.get(
+                    "score",
+                    0
+                ) + 1
+            )
+
+        # Başarılı eski kayıtları kontrol
+        for old_token, trade in list(
+            record["tokens"].items()
+        ):
+
+            if trade.get(
+                "success"
+            ):
+
+                continue
+
+            entry_move = safe_float(
+                trade.get(
+                    "entry_move"
+                ),
+                0
+            )
+
+            if (
+                current_move >=
+                entry_move + SUCCESS_MOVE
+            ):
+
+                trade["success"] = True
+
+                record[
+                    "successful_buys"
+                ] = (
+                    record.get(
+                        "successful_buys",
+                        0
+                    ) + 1
+                )
+
+                record["score"] = (
+                    record.get(
+                        "score",
+                        0
+                    ) + 3
+                )
+
+        if (
+            record.get(
+                "score",
+                0
+            ) >= MIN_WALLET_SCORE
+        ):
+
+            smart_now.append(
+                wallet
+            )
+
+    return smart_now
+
+
+# =========================================================
+# SMART MONEY SKORU
+# =========================================================
+
+def smart_money_score(
+    discovered_wallets,
+    wallets
+):
+
+    strong = []
+
+    medium = []
+
+    for wallet in discovered_wallets:
+
+        record = wallets.get(
+            wallet
+        )
+
+        if not record:
+
+            continue
+
+        score = record.get(
+            "score",
+            0
+        )
+
+        successful = record.get(
+            "successful_buys",
+            0
+        )
+
+        if (
+            successful
+            >= SMART_SUCCESS_THRESHOLD
+        ):
+
+            strong.append(wallet)
+
+        elif score >= MIN_WALLET_SCORE:
+
+            medium.append(wallet)
+
+    score = 0
+
+    if len(strong) >= 3:
+
+        score += 4
+
+    elif len(strong) >= 2:
+
+        score += 3
+
+    elif len(strong) >= 1:
+
+        score += 2
+
+    if len(medium) >= 3:
+
+        score += 2
+
+    elif len(medium) >= 2:
+
+        score += 1
+
+    return score, strong, medium
+
+
+# =========================================================
+# HACİM / LİKİDİTE DEĞİŞİMİ
+# =========================================================
+
+def state_changes(
+    old,
+    data
+):
+
+    volume_change = None
+
+    liquidity_change = None
+
     old_volume = safe_float(
         old.get("volume_1h")
     )
 
-    current_volume = safe_float(
-        current.get("volume_1h")
+    new_volume = safe_float(
+        data.get("volume_1h")
     )
 
     old_liquidity = safe_float(
         old.get("liquidity")
     )
 
-    current_liquidity = safe_float(
-        current.get("liquidity")
+    new_liquidity = safe_float(
+        data.get("liquidity")
     )
 
-    volume_change = None
-    liquidity_change = None
-
     if (
-        old_volume is not None
-        and current_volume is not None
+        old_volume
+        and new_volume
         and old_volume > 0
     ):
+
         volume_change = (
-            (current_volume - old_volume)
+            (
+                new_volume
+                - old_volume
+            )
             / old_volume
         ) * 100
 
     if (
-        old_liquidity is not None
-        and current_liquidity is not None
+        old_liquidity
+        and new_liquidity
         and old_liquidity > 0
     ):
+
         liquidity_change = (
-            (current_liquidity - old_liquidity)
+            (
+                new_liquidity
+                - old_liquidity
+            )
             / old_liquidity
         ) * 100
 
-    return volume_change, liquidity_change
+    return (
+        volume_change,
+        liquidity_change
+    )
 
 
 # =========================================================
-# SİNYAL ANALİZİ
+# ANA ANALİZ
 # =========================================================
 
-def analyze(data, old_state):
-    if not data:
-        return None
+def analyze(
+    data,
+    old,
+    wallets
+):
 
     score = 0
+
     reasons = []
+
     warnings = []
 
-    change_5m = data["change_5m"]
-    change_1h = data["change_1h"]
-    change_24h = data["change_24h"]
-
-    volume_5m = data["volume_5m"]
-    volume_1h = data["volume_1h"]
-
-    liquidity = data["liquidity"]
-
-    buys_5m = data["buys_5m"]
-    sells_5m = data["sells_5m"]
-
-    buys_15m = data["buys_15m"]
-    sells_15m = data["sells_15m"]
-
-    buys_1h = data["buys_1h"]
-    sells_1h = data["sells_1h"]
-
-    pair_age = data["pair_age_minutes"]
-
     # -----------------------------------------------------
-    # GEREKLİ VERİLER
+    # VERİ
     # -----------------------------------------------------
 
-    if change_1h is None:
+    move_1h = data[
+        "change_1h"
+    ]
+
+    move_5m = data[
+        "change_5m"
+    ]
+
+    move_24h = data[
+        "change_24h"
+    ]
+
+    volume_1h = data[
+        "volume_1h"
+    ]
+
+    volume_5m = data[
+        "volume_5m"
+    ]
+
+    liquidity = data[
+        "liquidity"
+    ]
+
+    if move_1h is None:
         return None
 
     if volume_1h is None:
@@ -620,187 +1339,196 @@ def analyze(data, old_state):
         return None
 
     # -----------------------------------------------------
-    # AŞIRI PUMP KONTROLÜ
+    # PUMP KONTROL
     # -----------------------------------------------------
 
-    if change_1h > MAX_1H_MOVE:
+    if move_1h > MAX_1H_MOVE:
         return None
 
     if (
-        change_24h is not None
-        and change_24h > MAX_24H_MOVE
+        move_24h is not None
+        and move_24h > MAX_24H_MOVE
     ):
         return None
 
     # -----------------------------------------------------
-    # ÇOK YENİ PAIR
+    # YAŞ
     # -----------------------------------------------------
 
-    if pair_age is not None:
-        if pair_age < MIN_PAIR_AGE_MINUTES:
-            return None
+    age = data[
+        "pair_age_minutes"
+    ]
+
+    if (
+        age is not None
+        and age < MIN_PAIR_AGE_MINUTES
+    ):
+
+        return None
 
     # -----------------------------------------------------
-    # FİYAT YÖNÜ
+    # YÖN
     # -----------------------------------------------------
 
-    if change_1h < MIN_1H_MOVE:
+    if move_1h < MIN_1H_MOVE:
         return None
 
     if (
-        change_5m is not None
-        and change_5m <= -5
+        move_5m is not None
+        and move_5m <= -5
     ):
+
         return None
 
     # -----------------------------------------------------
-    # HACİM İVME
+    # HACİM
     # -----------------------------------------------------
 
-    volume_acceleration = (
-        calculate_volume_acceleration(
+    acceleration = (
+        volume_acceleration(
             volume_5m,
             volume_1h
         )
     )
 
-    if volume_acceleration is not None:
+    if acceleration is not None:
 
-        if volume_acceleration >= 6:
+        if acceleration >= 6:
+
             score += 3
+
             reasons.append(
-                "Son dakikalarda hacim çok hızlı artıyor."
+                "Son dakikalarda hacim çok hızlandı."
             )
 
-        elif volume_acceleration >= 3:
+        elif acceleration >= 3:
+
             score += 2
+
             reasons.append(
-                "Hacim belirgin şekilde hızlandı."
+                "Hacim belirgin şekilde hızlanıyor."
             )
 
-        elif volume_acceleration >= MIN_VOLUME_ACCELERATION:
+        elif acceleration >= 2.5:
+
             score += 1
-            reasons.append(
-                "Hacim normalin üzerinde."
-            )
 
     # -----------------------------------------------------
-    # 5 DK ALICI / SATICI
+    # ALICI / SATICI
     # -----------------------------------------------------
 
-    ratio_5m = ratio(
-        buys_5m,
-        sells_5m
+    r5 = ratio(
+        data["buys_5m"],
+        data["sells_5m"]
     )
 
-    if ratio_5m is not None:
+    r15 = ratio(
+        data["buys_15m"],
+        data["sells_15m"]
+    )
 
-        if ratio_5m >= 3:
+    r1 = ratio(
+        data["buys_1h"],
+        data["sells_1h"]
+    )
+
+    if r5 is not None:
+
+        if r5 >= 3:
+
             score += 3
+
             reasons.append(
-                "Son 5 dakikada alıcı işlemleri belirgin üstün."
+                "5 dakikada alıcı baskısı güçlü."
             )
 
-        elif ratio_5m >= 2:
+        elif r5 >= 2:
+
             score += 2
+
             reasons.append(
-                "Son 5 dakikada alıcılar satıcılardan fazla."
+                "5 dakikada alıcılar üstün."
             )
 
-        elif ratio_5m >= MIN_BUY_SELL_RATIO:
+        elif r5 >= 1.2:
+
             score += 1
 
-        elif ratio_5m < 1:
+        elif r5 < 1:
+
             score -= 2
+
             warnings.append(
-                "Son 5 dakikada satıcı işlemleri üstün."
+                "5 dakikada satıcılar üstün."
             )
 
-    # -----------------------------------------------------
-    # 15 DK ALICI / SATICI
-    # -----------------------------------------------------
+    if r15 is not None:
 
-    ratio_15m = None
+        if r15 >= 2:
 
-    if buys_15m > 0 or sells_15m > 0:
-
-        ratio_15m = ratio(
-            buys_15m,
-            sells_15m
-        )
-
-        if ratio_15m is not None:
-
-            if ratio_15m >= 2:
-                score += 2
-                reasons.append(
-                    "15 dakikalık alıcı/satıcı dengesi pozitif."
-                )
-
-            elif ratio_15m >= 1.3:
-                score += 1
-
-            elif ratio_15m < 1:
-                score -= 1
-
-    # -----------------------------------------------------
-    # 1 SAAT ALICI / SATICI
-    # -----------------------------------------------------
-
-    ratio_1h = ratio(
-        buys_1h,
-        sells_1h
-    )
-
-    if ratio_1h is not None:
-
-        if ratio_1h >= 1.5:
             score += 2
 
-        elif ratio_1h >= 1.2:
+        elif r15 >= 1.3:
+
             score += 1
 
-        elif ratio_1h < 1:
+        elif r15 < 1:
+
+            score -= 1
+
+    if r1 is not None:
+
+        if r1 >= 1.5:
+
+            score += 2
+
+        elif r1 >= 1.2:
+
+            score += 1
+
+        elif r1 < 1:
+
             score -= 1
 
     # -----------------------------------------------------
-    # 5 DK İŞLEM SAYISI
+    # İŞLEM AKTİVİTESİ
     # -----------------------------------------------------
 
     total_5m = (
-        buys_5m +
-        sells_5m
+        data["buys_5m"]
+        + data["sells_5m"]
     )
 
     if total_5m >= 300:
+
         score += 2
+
         reasons.append(
             "Son 5 dakikada işlem aktivitesi yüksek."
         )
 
     elif total_5m >= 100:
+
         score += 1
 
     # -----------------------------------------------------
-    # FİYAT HAREKETİ
+    # FİYAT
     # -----------------------------------------------------
 
-    if (
-        change_1h is not None
-        and 5 <= change_1h <= 15
-    ):
+    if 5 <= move_1h <= 15:
+
         score += 2
+
         reasons.append(
-            "Fiyat hareketi başladı ancak henüz aşırı yükselmedi."
+            "Fiyat hareketi başladı fakat henüz aşırı değil."
         )
 
-    elif (
-        change_1h is not None
-        and 15 < change_1h <= 25
-    ):
+    elif 15 < move_1h <= 25:
+
         score += 1
+
         warnings.append(
-            "Coin yükselmiş durumda; giriş riski arttı."
+            "Fiyat zaten yükselmiş durumda."
         )
 
     # -----------------------------------------------------
@@ -808,218 +1536,363 @@ def analyze(data, old_state):
     # -----------------------------------------------------
 
     if liquidity >= 50000:
+
         score += 2
 
     elif liquidity >= 25000:
+
         score += 1
 
     # -----------------------------------------------------
-    # BOOST / SOSYAL
+    # SOSYAL
     # -----------------------------------------------------
-
-    if data["boost_active"] > 0:
-        score += 1
-        reasons.append(
-            "DEX Screener üzerinde aktif Boost bulunuyor."
-        )
 
     if data["socials"]:
+
         score += 1
+
         reasons.append(
-            "Token için sosyal medya bağlantısı mevcut."
+            "Token için sosyal bağlantılar mevcut."
         )
 
     # -----------------------------------------------------
-    # STATE DEĞİŞİMİ
+    # BOOST
     # -----------------------------------------------------
 
-    volume_change = None
-    liquidity_change = None
+    if data[
+        "boost_active"
+    ] > 0:
 
-    if old_state:
-        volume_change, liquidity_change = (
-            calculate_state_changes(
-                old_state,
-                data
-            )
+        score += 1
+
+        reasons.append(
+            "DEX Screener Boost aktif."
         )
 
-        if (
-            liquidity_change is not None
-            and liquidity_change <= -15
-        ):
+    # -----------------------------------------------------
+    # STATE
+    # -----------------------------------------------------
+
+    volume_change, liquidity_change = (
+        state_changes(
+            old,
+            data
+        )
+    )
+
+    if (
+        liquidity_change is not None
+    ):
+
+        if liquidity_change <= -15:
+
             score -= 3
+
             warnings.append(
-                "Likidite ciddi şekilde azalmış."
+                "Likidite ciddi şekilde düşmüş."
             )
 
-        elif (
-            liquidity_change is not None
-            and liquidity_change >= 10
-        ):
+        elif liquidity_change >= 10:
+
             score += 1
+
             reasons.append(
-                "Likiditede artış görülüyor."
+                "Likidite artıyor."
             )
 
-        if (
-            volume_change is not None
-            and volume_change >= 20
-        ):
-            score += 1
-            reasons.append(
-                "Son taramaya göre hacim artıyor."
-            )
+    if (
+        volume_change is not None
+        and volume_change >= 20
+    ):
+
+        score += 1
+
+        reasons.append(
+            "Önceki taramaya göre hacim artıyor."
+        )
 
     # -----------------------------------------------------
-    # SON KONTROLLER
+    # SMART MONEY
     # -----------------------------------------------------
 
-    if score < MIN_SCORE:
+    discovered = discover_wallets(
+        data
+    )
+
+    smart_score, strong_wallets, medium_wallets = (
+        smart_money_score(
+            discovered,
+            wallets
+        )
+    )
+
+    score += smart_score
+
+    if len(strong_wallets) >= 3:
+
+        reasons.append(
+            f"{len(strong_wallets)} güçlü cüzdan hareket halinde."
+        )
+
+    elif len(strong_wallets) >= 1:
+
+        reasons.append(
+            f"{len(strong_wallets)} takip edilen güçlü cüzdan alım yapmış olabilir."
+        )
+
+    elif len(medium_wallets) >= 2:
+
+        reasons.append(
+            "Birden fazla takip edilen cüzdan görüldü."
+        )
+
+    # -----------------------------------------------------
+    # SON FİLTRE
+    # -----------------------------------------------------
+
+    if (
+        move_5m is not None
+        and move_5m < -2
+    ):
+
+        warnings.append(
+            "Son 5 dakikada geri çekilme var."
+        )
+
+    if r5 is not None and r5 < 0.9:
+
         return None
 
-    if (
-        change_5m is not None
-        and change_5m < -2
-    ):
-        warnings.append(
-            "Son 5 dakikada kısa vadeli geri çekilme var."
-        )
+    if score < MIN_SCORE:
 
-    # Aşırı satıcı baskısı
-    if (
-        ratio_5m is not None
-        and ratio_5m < 0.9
-    ):
         return None
 
     return {
+
         "score": score,
+
         "reasons": reasons,
+
         "warnings": warnings,
-        "ratio_5m": ratio_5m,
-        "ratio_15m": ratio_15m,
-        "ratio_1h": ratio_1h,
-        "volume_acceleration": volume_acceleration,
-        "volume_change": volume_change,
-        "liquidity_change": liquidity_change
+
+        "ratio_5m": r5,
+
+        "ratio_15m": r15,
+
+        "ratio_1h": r1,
+
+        "volume_acceleration":
+            acceleration,
+
+        "volume_change":
+            volume_change,
+
+        "liquidity_change":
+            liquidity_change,
+
+        "strong_wallets":
+            strong_wallets,
+
+        "medium_wallets":
+            medium_wallets
     }
 
 
 # =========================================================
-# TELEGRAM MESAJI
+# TELEGRAM MESAJ
 # =========================================================
 
-def build_message(data, analysis):
-    symbol = data["symbol"]
+def build_message(
+    data,
+    analysis
+):
 
-    change_1h = data["change_1h"]
-    change_5m = data["change_5m"]
-
-    volume_acceleration = (
-        analysis["volume_acceleration"]
-    )
-
-    ratio_5m = analysis["ratio_5m"]
-
-    liquidity = data["liquidity"]
-
-    liquidity_change = (
-        analysis["liquidity_change"]
-    )
+    symbol = data[
+        "symbol"
+    ]
 
     message = (
         "🚨 ERKEN UYARI — SOLANA\n\n"
+    )
+
+    message += (
         f"🪙 {symbol}\n\n"
     )
 
     message += (
-        f"📈 1 saat: {format_percent(change_1h)}\n"
+        f"📈 1 saat: "
+        f"{format_percent(data['change_1h'])}\n"
     )
 
-    if change_5m is not None:
+    if data[
+        "change_5m"
+    ] is not None:
+
         message += (
             f"📈 5 dakika: "
-            f"{format_percent(change_5m)}\n"
+            f"{format_percent(data['change_5m'])}\n"
         )
 
-    if volume_acceleration is not None:
+    acceleration = analysis[
+        "volume_acceleration"
+    ]
+
+    if acceleration is not None:
+
         message += (
             f"\n🔥 Hacim ivmesi: "
-            f"{volume_acceleration:.1f}x\n"
+            f"{acceleration:.1f}x\n"
         )
 
     message += (
         f"\n👥 5dk Alıcı: "
         f"{data['buys_5m']}\n"
+
         f"🔻 5dk Satıcı: "
         f"{data['sells_5m']}\n"
     )
 
-    if ratio_5m is not None:
+    r5 = analysis[
+        "ratio_5m"
+    ]
+
+    if r5 is not None:
+
         message += (
             f"⚖️ Alıcı/Satıcı: "
-            f"{ratio_5m:.1f}x\n"
+            f"{r5:.1f}x\n"
         )
 
-    # 15 dk verisi gerçekten varsa göster
     if (
         data["buys_15m"] > 0
         or data["sells_15m"] > 0
     ):
+
         message += (
             f"\n👥 15dk Alıcı: "
             f"{data['buys_15m']}\n"
+
             f"🔻 15dk Satıcı: "
             f"{data['sells_15m']}\n"
         )
+
     else:
+
         message += (
-            "\n👥 15dk işlem verisi: "
+            "\n👥 15dk veri: "
             "VERİ YOK\n"
         )
 
     message += (
         f"\n💧 Likidite: "
-        f"{format_money(liquidity)}\n"
+        f"{format_money(data['liquidity'])}\n"
     )
 
-    if liquidity_change is not None:
+    if (
+        analysis[
+            "liquidity_change"
+        ] is not None
+    ):
+
         message += (
-            f"📊 Likidite değişimi: "
-            f"{format_percent(liquidity_change)}\n"
+            f"📊 Likidite: "
+            f"{format_percent(analysis['liquidity_change'])}\n"
         )
-    else:
+
+    # -----------------------------------------------------
+    # SMART MONEY
+    # -----------------------------------------------------
+
+    strong = analysis[
+        "strong_wallets"
+    ]
+
+    medium = analysis[
+        "medium_wallets"
+    ]
+
+    if strong or medium:
+
         message += (
-            "📊 Likidite değişimi: "
-            "İlk veri\n"
+            "\n👛 SMART MONEY\n"
         )
 
-    message += "\n💡 Neden dikkat çekti?\n"
+        message += (
+            f"🟢 Güçlü: "
+            f"{len(strong)}\n"
+        )
 
-    for reason in analysis["reasons"][:5]:
-        message += f"• {reason}\n"
+        message += (
+            f"🟡 Takip edilen: "
+            f"{len(medium)}\n"
+        )
 
-    for warning in analysis["warnings"][:2]:
-        message += f"⚠️ {warning}\n"
+    # -----------------------------------------------------
+    # NEDEN
+    # -----------------------------------------------------
 
-    score = analysis["score"]
+    message += (
+        "\n💡 Neden dikkat çekti?\n"
+    )
 
-    if score >= 9:
-        level = "🚀 ÇOK GÜÇLÜ"
+    used = set()
+
+    for reason in analysis[
+        "reasons"
+    ][:6]:
+
+        if reason in used:
+
+            continue
+
+        used.add(reason)
+
+        message += (
+            f"• {reason}\n"
+        )
+
+    for warning in analysis[
+        "warnings"
+    ][:2]:
+
+        message += (
+            f"⚠️ {warning}\n"
+        )
+
+    score = analysis[
+        "score"
+    ]
+
+    if score >= 10:
+
+        level = (
+            "🚀 ÇOK GÜÇLÜ"
+        )
+
     elif score >= 8:
-        level = "🟢 GÜÇLÜ"
+
+        level = (
+            "🟢 GÜÇLÜ"
+        )
+
     else:
-        level = "🟡 ERKEN AŞAMA"
+
+        level = (
+            "🟡 ERKEN AŞAMA"
+        )
 
     message += (
         f"\n{level}\n\n"
+    )
+
+    message += (
         "⚠️ Meme coin — çok yüksek risk\n"
         "📍 Solana\n"
-        "🔎 Phantom'dan kontrat adresini kontrol et.\n"
+        "🔎 Phantom'dan kontratı kontrol et.\n"
     )
 
     if data["url"]:
+
         message += (
             "\n🔗 DEX Screener:\n"
             f"{data['url']}"
@@ -1029,13 +1902,20 @@ def build_message(data, analysis):
 
 
 # =========================================================
-# GIT STATE KAYDETME
+# GIT
 # =========================================================
 
-def git_save_state():
+def git_save():
+
     try:
+
         subprocess.run(
-            ["git", "config", "user.name", "crypto-alert-bot"],
+            [
+                "git",
+                "config",
+                "user.name",
+                "crypto-alert-bot"
+            ],
             check=False
         )
 
@@ -1050,7 +1930,12 @@ def git_save_state():
         )
 
         subprocess.run(
-            ["git", "add", STATE_FILE],
+            [
+                "git",
+                "add",
+                STATE_FILE,
+                WALLET_FILE
+            ],
             check=False
         )
 
@@ -1059,7 +1944,7 @@ def git_save_state():
                 "git",
                 "commit",
                 "-m",
-                "Update Solana alert state"
+                "Update Solana radar state"
             ],
             capture_output=True,
             text=True,
@@ -1067,260 +1952,348 @@ def git_save_state():
         )
 
         if result.returncode == 0:
+
             subprocess.run(
                 ["git", "push"],
                 check=False
             )
 
     except Exception as e:
-        print("Git state kayıt hatası:", e)
+
+        print(
+            "Git hata:",
+            e
+        )
 
 
 # =========================================================
-# ANA BOT
+# ANA
 # =========================================================
 
 def main():
 
-    print("================================")
-    print("SOLANA ERKEN UYARI BOTU")
-    print("================================")
+    print(
+        "================================"
+    )
 
-    state = load_state()
+    print(
+        "SOLANA EARLY WARNING RADAR"
+    )
+
+    print(
+        "SMART MONEY LEARNING AKTİF"
+    )
+
+    print(
+        "================================"
+    )
+
+    state = load_json(
+        STATE_FILE
+    )
+
+    wallets = load_json(
+        WALLET_FILE
+    )
 
     profiles = get_latest_profiles()
 
     if not profiles:
-        print("Token profili alınamadı.")
+
+        print(
+            "Token profilleri alınamadı."
+        )
+
         return
 
-    # Sadece Solana
-    solana_profiles = []
+    # -----------------------------------------------------
+    # SOLANA TOKENLARI
+    # -----------------------------------------------------
 
-    seen_addresses = set()
+    selected = []
+
+    seen = set()
 
     for profile in profiles:
 
-        if profile.get("chainId") != "solana":
+        if profile.get(
+            "chainId"
+        ) != "solana":
+
             continue
 
-        address = profile.get("tokenAddress")
+        address = profile.get(
+            "tokenAddress"
+        )
 
         if not address:
+
             continue
 
-        if address in seen_addresses:
+        if address in seen:
+
             continue
 
-        seen_addresses.add(address)
+        seen.add(address)
 
-        solana_profiles.append(profile)
+        selected.append(
+            address
+        )
 
-        if len(solana_profiles) >= MAX_TOKENS:
+        if len(selected) >= MAX_TOKENS:
+
             break
 
     print(
-        f"{len(solana_profiles)} Solana token taranacak."
+        f"{len(selected)} token taranıyor..."
     )
 
     # -----------------------------------------------------
-    # TOKENLARI 30'LU GRUPLAR HALİNDE ÇEK
+    # 30'LU GRUPLAR
     # -----------------------------------------------------
 
     all_pairs = []
 
     for i in range(
         0,
-        len(solana_profiles),
+        len(selected),
         30
     ):
 
-        batch = solana_profiles[
+        batch = selected[
             i:i + 30
         ]
 
-        addresses = [
-            x["tokenAddress"]
-            for x in batch
-        ]
-
         pairs = get_token_pairs(
-            addresses
+            batch
         )
 
-        all_pairs.extend(pairs)
+        all_pairs.extend(
+            pairs
+        )
 
-        time.sleep(0.3)
+        time.sleep(
+            0.5
+        )
 
     print(
         f"{len(all_pairs)} pair bulundu."
     )
 
     # -----------------------------------------------------
-    # TOKEN BAZINDA EN İYİ PAIR
+    # TOKEN → PAIR
     # -----------------------------------------------------
 
-    token_pairs = {}
+    grouped = {}
 
     for pair in all_pairs:
 
-        base = pair.get("baseToken") or {}
-        address = base.get("address")
+        base = (
+            pair.get("baseToken")
+            or {}
+        )
+
+        address = base.get(
+            "address"
+        )
 
         if not address:
+
             continue
 
-        if address not in token_pairs:
-            token_pairs[address] = []
+        grouped.setdefault(
+            address,
+            []
+        ).append(pair)
 
-        token_pairs[address].append(pair)
-
-    alerts_sent = 0
+    alerts = 0
 
     # -----------------------------------------------------
     # ANALİZ
     # -----------------------------------------------------
 
-    for token_address, pairs in token_pairs.items():
+    for token_address, pairs in grouped.items():
 
-        best_pair = choose_best_pair(
+        best = choose_best_pair(
             pairs
         )
 
-        if not best_pair:
+        if not best:
+
             continue
 
-        pair_address = best_pair.get(
+        pair_address = best.get(
             "pairAddress"
         )
 
         if not pair_address:
+
             continue
 
-        # Önce hızlı filtre
-        quick_data = extract_pair_data(
-            best_pair
+        quick = extract_pair_data(
+            best
         )
 
-        if not quick_data:
+        if not quick:
+
             continue
 
+        # Hızlı filtre
         if (
-            quick_data["liquidity"] is None
-            or quick_data["liquidity"] < MIN_LIQUIDITY
+            quick["liquidity"]
+            is None
+            or quick["liquidity"]
+            < MIN_LIQUIDITY
         ):
+
             continue
 
         if (
-            quick_data["volume_1h"] is None
-            or quick_data["volume_1h"] < MIN_1H_VOLUME
+            quick["volume_1h"]
+            is None
+            or quick["volume_1h"]
+            < MIN_1H_VOLUME
         ):
+
             continue
 
         if (
-            quick_data["change_1h"] is None
+            quick["change_1h"]
+            is None
         ):
+
             continue
 
         if (
-            quick_data["change_1h"]
+            quick["change_1h"]
             < MIN_1H_MOVE
         ):
+
             continue
 
         if (
-            quick_data["change_1h"]
+            quick["change_1h"]
             > MAX_1H_MOVE
         ):
+
             continue
 
         # -------------------------------------------------
         # EXACT PAIR
         # -------------------------------------------------
 
-        exact_pair = get_exact_pair(
+        exact = get_exact_pair(
             pair_address
         )
 
-        if not exact_pair:
+        if not exact:
+
             continue
 
         data = extract_pair_data(
-            exact_pair
+            exact
         )
 
         if not data:
+
             continue
 
-        # Pair değişmişse tekrar kontrol
         if (
             data["pair_address"]
             != pair_address
         ):
+
             continue
 
         # -------------------------------------------------
-        # ESKİ STATE
+        # STATE
         # -------------------------------------------------
 
-        state_key = pair_address
+        key = pair_address
 
-        old_state = state.get(
-            state_key,
+        old = state.get(
+            key,
             {}
         )
 
-        # -------------------------------------------------
-        # AYNI COIN TEKRAR KONTROLÜ
-        # -------------------------------------------------
-
         last_alert = safe_int(
-            old_state.get(
+            old.get(
                 "last_alert",
                 0
-            ),
-            0
+            )
         )
 
-        hours_since_alert = (
-            now_ts() - last_alert
-        ) / 3600
+        # -------------------------------------------------
+        # SMART MONEY ÖĞRENME
+        # -------------------------------------------------
 
-        if (
-            last_alert > 0
-            and hours_since_alert
-            < REPEAT_HOURS
-        ):
-            # State'i güncelle ama alarm verme
-            state[state_key] = {
-                **data,
-                "last_seen": now_ts(),
-                "last_alert": last_alert
-            }
+        try:
 
-            continue
+            learn_wallets(
+                data,
+                wallets,
+                state
+            )
+
+        except Exception as e:
+
+            print(
+                "Wallet öğrenme hatası:",
+                e
+            )
 
         # -------------------------------------------------
         # ANALİZ
         # -------------------------------------------------
 
-        analysis = analyze(
-            data,
-            old_state
-        )
+        try:
 
-        # -------------------------------------------------
-        # STATE GÜNCELLE
-        # -------------------------------------------------
+            analysis = analyze(
+                data,
+                old,
+                wallets
+            )
 
-        state[state_key] = {
+        except Exception as e:
+
+            print(
+                "Analiz hatası:",
+                e
+            )
+
+            analysis = None
+
+        # State
+        state[key] = {
+
             **data,
-            "last_seen": now_ts(),
-            "last_alert": last_alert
+
+            "last_seen":
+                now_ts(),
+
+            "last_alert":
+                last_alert
         }
 
+        # Sinyal yok
         if not analysis:
+
             continue
+
+        # -------------------------------------------------
+        # TEKRAR KONTROL
+        # -------------------------------------------------
+
+        if last_alert > 0:
+
+            elapsed = (
+                now_ts()
+                - last_alert
+            ) / 3600
+
+            if elapsed < REPEAT_HOURS:
+
+                continue
 
         # -------------------------------------------------
         # TELEGRAM
@@ -1338,31 +2311,52 @@ def main():
             analysis["score"]
         )
 
-        if send_telegram(message):
+        sent = send_telegram(
+            message
+        )
 
-            state[state_key][
+        if sent:
+
+            state[key][
                 "last_alert"
             ] = now_ts()
 
-            alerts_sent += 1
+            alerts += 1
 
-        time.sleep(0.4)
+        time.sleep(
+            0.5
+        )
 
     # -----------------------------------------------------
-    # STATE KAYDET
+    # KAYDET
     # -----------------------------------------------------
 
-    save_state(state)
-
-    print(
-        f"\nToplam alarm: {alerts_sent}"
+    save_json(
+        STATE_FILE,
+        state
     )
 
-    # GitHub Actions state'i sonraki çalışmaya taşısın
-    git_save_state()
+    save_json(
+        WALLET_FILE,
+        wallets
+    )
 
-    print("Bot tamamlandı.")
+    print(
+        "\nToplam alarm:",
+        alerts
+    )
 
+    git_save()
+
+    print(
+        "Bot tamamlandı."
+    )
+
+
+# =========================================================
+# START
+# =========================================================
 
 if __name__ == "__main__":
+
     main()

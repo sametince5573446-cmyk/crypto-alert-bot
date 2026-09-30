@@ -57,5 +57,38 @@
     "url": "https://dexscreener.com/solana/3i86zkk6y9qn2ydybist1rf92zgza54kqqpn4pfyvulf",
     "last_seen": 1790767923,
     "last_alert": 0
+  },
+  "GeHprCgwQrbWS97e4JZQZwBBHWy7zJtqx6ijKoeCorkQ": {
+    "symbol": "Pain",
+    "name": "The Pain Axis",
+    "pair_address": "GeHprCgwQrbWS97e4JZQZwBBHWy7zJtqx6ijKoeCorkQ",
+    "price_usd": 6.032e-05,
+    "change_5m": 39.5,
+    "change_1h": 22.69,
+    "change_6h": 22.69,
+    "change_24h": 22.69,
+    "volume_5m": 12403.08,
+    "volume_1h": 59484.54,
+    "volume_6h": 59484.54,
+    "volume_24h": 59484.54,
+    "buys_5m": 177,
+    "sells_5m": 150,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 840,
+    "sells_1h": 554,
+    "liquidity": 20427.59,
+    "pair_age_minutes": 15.05,
+    "boost_active": 0,
+    "websites": [],
+    "socials": [
+      {
+        "url": "https://x.com/melsdevs/status/2105255857436967344?s=20",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/gehprcgwqrbws97e4jzqzwbbhwy7zjtqx6ijkoecorkq",
+    "last_seen": 1790770353,
+    "last_alert": 1790770354
   }
 }

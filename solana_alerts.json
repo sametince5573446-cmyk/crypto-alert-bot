@@ -562,5 +562,35 @@
     "url": "https://dexscreener.com/solana/5yzmhndv7x6ncyxof2hvrgw55cs7x2cjnorpohfn9s5o",
     "last_seen": 1790801806,
     "last_alert": 0
+  },
+  "EXe7eEuHnKTiR5rC4XdnZt1bVuMVgVx9TaC5j3WPxb7f": {
+    "symbol": "QUANT",
+    "name": "That's my Quant",
+    "token_address": "HpyRH91gxwDKmjcN7UjPpSFLBXA86yGodgaJYrRK3HT",
+    "pair_address": "EXe7eEuHnKTiR5rC4XdnZt1bVuMVgVx9TaC5j3WPxb7f",
+    "change_5m": 28.17,
+    "change_1h": 21.97,
+    "change_6h": 21.97,
+    "change_24h": 21.97,
+    "volume_5m": 2206.85,
+    "volume_1h": 238304.42,
+    "buys_5m": 24,
+    "sells_5m": 9,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 1407,
+    "sells_1h": 1028,
+    "liquidity": 21550.43,
+    "pair_age_minutes": 43.8,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/hoppyrocketfrog/status/2105409339486007796?s=20",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/exe7eeuhnktir5rc4xdnzt1bvumvgvx9tac5j3wpxb7f",
+    "last_seen": 1790805754,
+    "last_alert": 0
   }
 }

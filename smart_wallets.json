@@ -223,5 +223,35 @@
         "success": false
       }
     }
+  },
+  "GhJqzSYC5eHPbyXV92krNRy6s2urCFMNGLcUzTEaQH8m": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790805753,
+    "tokens": {
+      "HpyRH91gxwDKmjcN7UjPpSFLBXA86yGodgaJYrRK3HT": {
+        "symbol": "QUANT",
+        "entry_move": 21.97,
+        "entry_time": 1790805753,
+        "success": false
+      }
+    }
+  },
+  "G6Ae1saevmpWvjqvbb7VMt1tWHiP3fq9tdsvgRGhJSkY": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790805753,
+    "tokens": {
+      "HpyRH91gxwDKmjcN7UjPpSFLBXA86yGodgaJYrRK3HT": {
+        "symbol": "QUANT",
+        "entry_move": 21.97,
+        "entry_time": 1790805753,
+        "success": false
+      }
+    }
   }
 }

@@ -388,5 +388,20 @@
         "success": false
       }
     }
+  },
+  "7ZKMXfkbptxgyXHfEd2zwBACfZGhdXanW3Xqh6dpgomi": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790809065,
+    "tokens": {
+      "9jAVyE3sTnVoWXLK4eorcU7uV6zhh5Q9WapdcstAYtas": {
+        "symbol": "GENESIS",
+        "entry_move": 7.05,
+        "entry_time": 1790809065,
+        "success": false
+      }
+    }
   }
 }

@@ -208,5 +208,20 @@
         "success": false
       }
     }
+  },
+  "91D8gAUu8BHZ53B5brYAnAwGfPVwU9AUe1sxQgs6jXDq": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790798077,
+    "tokens": {
+      "3MPnePgPguPF2cNjtGdHeNofSkg9Kn7Pn2vt6kr6pump": {
+        "symbol": "LAB",
+        "entry_move": 5.0,
+        "entry_time": 1790798077,
+        "success": false
+      }
+    }
   }
 }

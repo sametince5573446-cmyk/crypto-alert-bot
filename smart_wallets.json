@@ -313,5 +313,20 @@
         "success": false
       }
     }
+  },
+  "77RKeE9eUP8x2pxjaYzh61ojjNCb8ujAuA9gNZfDLj8": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790807820,
+    "tokens": {
+      "CmSxvYNLvy6t3cUWe33H9CBN7BYQa8TZJaP3FY4Apump": {
+        "symbol": "SC",
+        "entry_move": 19.62,
+        "entry_time": 1790807820,
+        "success": false
+      }
+    }
   }
 }

@@ -403,5 +403,20 @@
         "success": false
       }
     }
+  },
+  "DGzMXC1x5VzodF3UU79npnHVXD5RSPYPiXQo1KBYPyAL": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790811960,
+    "tokens": {
+      "DfLA2AoZqey8TArzSE8Eq962qpwRkQhZ74Vf2L6tpump": {
+        "symbol": "SJ",
+        "entry_move": 12.59,
+        "entry_time": 1790811960,
+        "success": false
+      }
+    }
   }
 }

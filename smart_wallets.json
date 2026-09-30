@@ -253,5 +253,65 @@
         "success": false
       }
     }
+  },
+  "HFX2dqzyQeRAdkjp41D4qThfsPPSyBDkVoruBr93zhY9": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790806862,
+    "tokens": {
+      "2QHXWq5TK64JbMptwMBP1BsfhrxZRRv9JsLa17X7pump": {
+        "symbol": "SAW",
+        "entry_move": 16.18,
+        "entry_time": 1790806862,
+        "success": false
+      }
+    }
+  },
+  "CkUZV387xnoGpF7wC2moMa6mPmAgCvTT4pWgzq4M9fCD": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790806862,
+    "tokens": {
+      "2QHXWq5TK64JbMptwMBP1BsfhrxZRRv9JsLa17X7pump": {
+        "symbol": "SAW",
+        "entry_move": 16.18,
+        "entry_time": 1790806862,
+        "success": false
+      }
+    }
+  },
+  "6pEjS7wbGBpK3vxGELWXHvXrnWDBfUkKDTTjdfr56svP": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790806862,
+    "tokens": {
+      "2QHXWq5TK64JbMptwMBP1BsfhrxZRRv9JsLa17X7pump": {
+        "symbol": "SAW",
+        "entry_move": 16.18,
+        "entry_time": 1790806862,
+        "success": false
+      }
+    }
+  },
+  "4dPZMbReSobZVxfrzGLcD7xJN33pZhuUZix5HkTBTh4x": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790806862,
+    "tokens": {
+      "2QHXWq5TK64JbMptwMBP1BsfhrxZRRv9JsLa17X7pump": {
+        "symbol": "SAW",
+        "entry_move": 16.18,
+        "entry_time": 1790806862,
+        "success": false
+      }
+    }
   }
 }

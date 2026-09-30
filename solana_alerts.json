@@ -592,5 +592,35 @@
     "url": "https://dexscreener.com/solana/exe7eeuhnktir5rc4xdnzt1bvumvgvx9tac5j3wpxb7f",
     "last_seen": 1790805754,
     "last_alert": 0
+  },
+  "B7XU9FYpuKgjEhM5HwyR9qAHXL3Juyz3CcgPuuiAbKki": {
+    "symbol": "SAW",
+    "name": "Clanker Torture Chamber",
+    "token_address": "2QHXWq5TK64JbMptwMBP1BsfhrxZRRv9JsLa17X7pump",
+    "pair_address": "B7XU9FYpuKgjEhM5HwyR9qAHXL3Juyz3CcgPuuiAbKki",
+    "change_5m": 24.16,
+    "change_1h": 16.18,
+    "change_6h": 221.0,
+    "change_24h": 221.0,
+    "volume_5m": 8289.87,
+    "volume_1h": 70148.65,
+    "buys_5m": 41,
+    "sells_5m": 37,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 332,
+    "sells_1h": 320,
+    "liquidity": 35561.0,
+    "pair_age_minutes": 316.98333333333335,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/dingl30",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/b7xu9fypukgjehm5hwyr9qahxl3juyz3ccgpuuiabkki",
+    "last_seen": 1790806862,
+    "last_alert": 0
   }
 }

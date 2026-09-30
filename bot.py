@@ -1,1886 +1,752 @@
 import os
 import json
-import subprocess
+import time
 import requests
-import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 
 # ============================================================
 # AYARLAR
 # ============================================================
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-SPOT_URL = "https://data-api.binance.vision"
-FUTURES_URL = "https://fapi.binance.com"
+DEX_BASE = "https://api.dexscreener.com"
+STATE_FILE = "solana_alerts.json"
 
-CAPITAL = 100.0
-MAX_RISK = 2.50
+# Aynı coin tekrar tekrar mesaj atmasın
+REPEAT_HOURS = 24
 
-MAX_COINS = 100
+# Erken uyarı sınırları
+MIN_MOVE = 5.0
+MAX_EARLY_MOVE = 25.0
+MAX_PUMP = 40.0
 
-SPECIAL_COINS = [
-    "XVGUSDT",
-    "QNTUSDT"
-]
+# Likidite filtresi
+MIN_LIQUIDITY = 10000
 
-MAX_STOP_PERCENT = 5.0
-MIN_LEVERAGE = 3
-
-NEWS_HOURS = 12
-
-SOLANA_STATE_FILE = "solana_alerts.json"
-
+# Hacim filtresi
+MIN_VOLUME_MULTIPLIER = 3.0
 
 # ============================================================
 # TELEGRAM
 # ============================================================
 
-def telegram(message):
-
+def send_telegram(message):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        return
+        print("Telegram bilgileri eksik.")
+        return False
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
-    try:
-        requests.post(
-            url,
-            data={
-                "chat_id": TELEGRAM_CHAT_ID,
-                "text": message
-            },
-            timeout=15
-        )
-    except Exception as e:
-        print("Telegram:", e)
-
-
-# ============================================================
-# HTTP
-# ============================================================
-
-def get(url, params=None, timeout=15):
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "disable_web_page_preview": False
+    }
 
     try:
+        r = requests.post(url, json=payload, timeout=15)
 
-        r = requests.get(
-            url,
-            params=params,
-            timeout=timeout
-        )
+        if r.ok:
+            return True
 
-        if r.status_code != 200:
-            return None
-
-        return r.json()
+        print("Telegram hata:", r.text)
 
     except Exception as e:
+        print("Telegram bağlantı hatası:", e)
 
-        print("HTTP:", e)
-        return None
-
-
-# ============================================================
-# BINANCE SPOT
-# ============================================================
-
-def ticker_24h():
-
-    return get(
-        SPOT_URL + "/api/v3/ticker/24hr",
-        timeout=20
-    ) or []
-
-
-def klines(symbol, interval="1h", limit=100):
-
-    return get(
-        SPOT_URL + "/api/v3/klines",
-        {
-            "symbol": symbol,
-            "interval": interval,
-            "limit": limit
-        }
-    ) or []
+    return False
 
 
 # ============================================================
-# BINANCE FUTURES
-# ============================================================
-
-def funding(symbol):
-
-    data = get(
-        FUTURES_URL + "/fapi/v1/fundingRate",
-        {
-            "symbol": symbol,
-            "limit": 1
-        }
-    )
-
-    if data:
-
-        try:
-            return float(data[-1]["fundingRate"])
-        except:
-            pass
-
-    return 0.0
-
-
-def open_interest_history(symbol):
-
-    data = get(
-        FUTURES_URL + "/futures/data/openInterestHist",
-        {
-            "symbol": symbol,
-            "period": "1h",
-            "limit": 3
-        }
-    )
-
-    if not data or len(data) < 2:
-        return 0.0
-
-    try:
-
-        old = float(data[-2]["sumOpenInterest"])
-        new = float(data[-1]["sumOpenInterest"])
-
-        if old <= 0:
-            return 0.0
-
-        return ((new - old) / old) * 100
-
-    except:
-
-        return 0.0
-
-
-def mark_price(symbol):
-
-    data = get(
-        FUTURES_URL + "/fapi/v1/premiumIndex",
-        {
-            "symbol": symbol
-        }
-    )
-
-    if data:
-
-        try:
-            return float(data["markPrice"])
-        except:
-            pass
-
-    return 0.0
-
-
-# ============================================================
-# EMA
-# ============================================================
-
-def ema(values, period):
-
-    if not values:
-        return 0.0
-
-    multiplier = 2 / (period + 1)
-
-    result = values[0]
-
-    for value in values[1:]:
-
-        result = (
-            (value - result) * multiplier
-            + result
-        )
-
-    return result
-
-
-# ============================================================
-# RSI
-# ============================================================
-
-def rsi(values, period=14):
-
-    if len(values) <= period:
-        return 50.0
-
-    gains = []
-    losses = []
-
-    for i in range(1, len(values)):
-
-        change = values[i] - values[i - 1]
-
-        if change >= 0:
-
-            gains.append(change)
-            losses.append(0)
-
-        else:
-
-            gains.append(0)
-            losses.append(abs(change))
-
-    avg_gain = sum(gains[:period]) / period
-    avg_loss = sum(losses[:period]) / period
-
-    for i in range(period, len(gains)):
-
-        avg_gain = (
-            (avg_gain * (period - 1))
-            + gains[i]
-        ) / period
-
-        avg_loss = (
-            (avg_loss * (period - 1))
-            + losses[i]
-        ) / period
-
-    if avg_loss == 0:
-        return 100.0
-
-    rs = avg_gain / avg_loss
-
-    return 100 - (100 / (1 + rs))
-
-
-# ============================================================
-# TIMEFRAME ANALYSIS
-# ============================================================
-
-def timeframe_analysis(symbol, interval):
-
-    data = klines(symbol, interval, 100)
-
-    if len(data) < 50:
-        return None
-
-    closes = [
-        float(x[4])
-        for x in data
-    ]
-
-    volumes = [
-        float(x[5])
-        for x in data
-    ]
-
-    e9 = ema(closes[-60:], 9)
-    e21 = ema(closes[-60:], 21)
-
-    current = closes[-1]
-
-    old = closes[-2]
-
-    change = (
-        (current - old)
-        / old
-    ) * 100
-
-    return {
-        "price": current,
-        "ema9": e9,
-        "ema21": e21,
-        "rsi": rsi(closes),
-        "change": change,
-        "volumes": volumes,
-        "closes": closes
-    }
-
-
-# ============================================================
-# BTC
-# ============================================================
-
-def btc_direction():
-
-    h1 = timeframe_analysis(
-        "BTCUSDT",
-        "1h"
-    )
-
-    h4 = timeframe_analysis(
-        "BTCUSDT",
-        "4h"
-    )
-
-    if not h1 or not h4:
-
-        return {
-            "direction": "NÖTR",
-            "rsi": 50,
-            "change6h": 0
-        }
-
-    bullish = (
-        h1["ema9"] > h1["ema21"]
-        and
-        h4["ema9"] > h4["ema21"]
-    )
-
-    bearish = (
-        h1["ema9"] < h1["ema21"]
-        and
-        h4["ema9"] < h4["ema21"]
-    )
-
-    if bullish:
-
-        direction = "YUKARI"
-
-    elif bearish:
-
-        direction = "AŞAĞI"
-
-    else:
-
-        direction = "NÖTR"
-
-    return {
-        "direction": direction,
-        "rsi": h1["rsi"],
-        "change6h": h1["change"]
-    }
-
-
-# ============================================================
-# HABERLER
-# ============================================================
-
-POSITIVE = [
-    "etf",
-    "approved",
-    "approval",
-    "partnership",
-    "adoption",
-    "integration",
-    "listing",
-    "launch",
-    "upgrade",
-    "mainnet",
-    "investment",
-    "institutional"
-]
-
-NEGATIVE = [
-    "hack",
-    "exploit",
-    "scam",
-    "lawsuit",
-    "ban",
-    "delist",
-    "delisting",
-    "attack",
-    "stolen",
-    "fraud"
-]
-
-
-def get_news():
-
-    feeds = [
-        "https://www.coindesk.com/arc/outboundfeeds/rss/",
-        "https://cointelegraph.com/rss"
-    ]
-
-    result = []
-
-    for feed in feeds:
-
-        try:
-
-            response = requests.get(
-                feed,
-                timeout=15
-            )
-
-            root = ET.fromstring(
-                response.content
-            )
-
-            for item in root.iter("item"):
-
-                title = item.findtext(
-                    "title",
-                    ""
-                )
-
-                pub = item.findtext(
-                    "pubDate",
-                    ""
-                )
-
-                result.append({
-                    "title": title,
-                    "pub": pub
-                })
-
-        except Exception as e:
-
-            print("News:", e)
-
-    return result
-
-
-def news_for_coin(symbol, news):
-
-    coin = symbol.replace(
-        "USDT",
-        ""
-    ).lower()
-
-    positive = 0
-    negative = 0
-
-    related = []
-
-    for item in news:
-
-        title = item["title"]
-
-        low = title.lower()
-
-        # Coin sembolü gerçekten başlıkta yoksa
-        # bu haberi coin haberi kabul etme.
-        if coin not in low:
-            continue
-
-        related.append(title)
-
-        for word in POSITIVE:
-
-            if word in low:
-                positive += 1
-
-        for word in NEGATIVE:
-
-            if word in low:
-                negative += 1
-
-    if negative > positive:
-
-        return "NEGATİF", related[:1]
-
-    if positive > negative:
-
-        return "POZİTİF", related[:1]
-
-    return "NÖTR", []
-
-
-# ============================================================
-# COIN ANALİZİ
-# ============================================================
-
-def analyze_coin(symbol):
-
-    h1 = timeframe_analysis(
-        symbol,
-        "1h"
-    )
-
-    h4 = timeframe_analysis(
-        symbol,
-        "4h"
-    )
-
-    if not h1 or not h4:
-        return None
-
-    price = h1["price"]
-
-    # --------------------------------------------------------
-    # 24 saatlik hareket
-    # --------------------------------------------------------
-
-    closes = h1["closes"]
-
-    if len(closes) >= 25:
-
-        change24h = (
-            (closes[-1] - closes[-25])
-            / closes[-25]
-        ) * 100
-
-    else:
-
-        change24h = 0
-
-    # Aşırı pump olmuş coinleri ele
-    if abs(change24h) > 30:
-        return None
-
-    # --------------------------------------------------------
-    # Hacim
-    # --------------------------------------------------------
-
-    volumes = h1["volumes"]
-
-    recent_volume = volumes[-1]
-
-    avg_volume = (
-        sum(volumes[-25:-1])
-        / 24
-    )
-
-    if avg_volume <= 0:
-        return None
-
-    volume_ratio = (
-        recent_volume
-        / avg_volume
-    )
-
-    # --------------------------------------------------------
-    # Trend
-    # --------------------------------------------------------
-
-    h1_bull = (
-        h1["ema9"]
-        >
-        h1["ema21"]
-    )
-
-    h1_bear = (
-        h1["ema9"]
-        <
-        h1["ema21"]
-    )
-
-    h4_bull = (
-        h4["ema9"]
-        >
-        h4["ema21"]
-    )
-
-    h4_bear = (
-        h4["ema9"]
-        <
-        h4["ema21"]
-    )
-
-    if h1_bull and h4_bull:
-
-        trend = "YUKARI"
-
-    elif h1_bear and h4_bear:
-
-        trend = "AŞAĞI"
-
-    else:
-
-        trend = "NÖTR"
-
-    # --------------------------------------------------------
-    # Destek / direnç
-    # --------------------------------------------------------
-
-    support = min(
-        closes[-25:]
-    )
-
-    resistance = max(
-        closes[-25:]
-    )
-
-    return {
-        "symbol": symbol,
-        "price": price,
-        "h1": h1,
-        "h4": h4,
-        "trend": trend,
-        "volume_ratio": volume_ratio,
-        "change24h": change24h,
-        "support": support,
-        "resistance": resistance
-    }
-
-
-# ============================================================
-# YÖN DOĞRULAMA
-# ============================================================
-
-def determine_direction(data, btc):
-
-    trend = data["trend"]
-
-    btc_dir = btc["direction"]
-
-    # LONG
-    if trend == "YUKARI":
-
-        if btc_dir in [
-            "YUKARI",
-            "NÖTR"
-        ]:
-
-            return "LONG"
-
-    # SHORT
-    if trend == "AŞAĞI":
-
-        if btc_dir in [
-            "AŞAĞI",
-            "NÖTR"
-        ]:
-
-            return "SHORT"
-
-    return None
-
-
-# ============================================================
-# FUTURES DOĞRULAMASI
-# ============================================================
-
-def derivatives_confirmation(
-    symbol,
-    direction
-):
-
-    fr = funding(symbol)
-
-    oi_change = open_interest_history(
-        symbol
-    )
-
-    mark = mark_price(symbol)
-
-    # Funding:
-    # LONG için aşırı negatif funding destekleyici olabilir.
-    # SHORT için aşırı pozitif funding destekleyici olabilir.
-
-    funding_score = 0
-
-    if direction == "LONG":
-
-        if fr <= -0.0003:
-            funding_score += 1
-
-        elif fr > 0.0010:
-            funding_score -= 1
-
-    elif direction == "SHORT":
-
-        if fr >= 0.0003:
-            funding_score += 1
-
-        elif fr < -0.0010:
-            funding_score -= 1
-
-    # OI
-    oi_score = 0
-
-    if direction == "LONG":
-
-        if oi_change > 0.5:
-            oi_score += 1
-
-    elif direction == "SHORT":
-
-        if oi_change > 0.5:
-            oi_score += 1
-
-    return {
-        "funding": fr,
-        "oi_change": oi_change,
-        "mark": mark,
-        "funding_score": funding_score,
-        "oi_score": oi_score
-    }
-
-
-# ============================================================
-# MOMENTUM
-# ============================================================
-
-def momentum_confirmation(data, direction):
-
-    h1 = data["h1"]
-
-    current = h1["price"]
-
-    previous = h1["closes"][-2]
-
-    move = (
-        (current - previous)
-        / previous
-    ) * 100
-
-    r = h1["rsi"]
-
-    if direction == "LONG":
-
-        # LONG için fiyatın aşağı değil yukarı
-        # momentum göstermesini istiyoruz.
-        if move <= 0:
-            return False
-
-        if r < 48 or r > 72:
-            return False
-
-    elif direction == "SHORT":
-
-        # SHORT için fiyatın aşağı momentum
-        # göstermesini istiyoruz.
-        if move >= 0:
-            return False
-
-        if r < 28 or r > 55:
-            return False
-
-    return True
-
-
-# ============================================================
-# TRADE PLAN
-# ============================================================
-
-def create_plan(
-    data,
-    direction,
-    score
-):
-
-    price = data["price"]
-
-    support = data["support"]
-
-    resistance = data["resistance"]
-
-    if direction == "LONG":
-
-        stop = support
-
-        distance = price - stop
-
-        if distance <= 0:
-            return None
-
-    else:
-
-        stop = resistance
-
-        distance = stop - price
-
-        if distance <= 0:
-            return None
-
-    stop_percent = (
-        distance
-        / price
-    ) * 100
-
-    # %5 üstü kesinlikle yok
-    if stop_percent > MAX_STOP_PERCENT:
-        return None
-
-    # Çok küçük stop da tehlikeli olabilir.
-    if stop_percent < 0.15:
-        return None
-
-    # --------------------------------------------------------
-    # TP
-    # --------------------------------------------------------
-
-    if direction == "LONG":
-
-        tp1 = price + distance * 1.5
-        tp2 = price + distance * 2.5
-
-    else:
-
-        tp1 = price - distance * 1.5
-        tp2 = price - distance * 2.5
-
-    # --------------------------------------------------------
-    # Kaldıraç
-    # --------------------------------------------------------
-
-    if score >= 9:
-
-        leverage = 10
-        budget_target = 40
-
-    elif score >= 8:
-
-        leverage = 8
-        budget_target = 35
-
-    elif score >= 7:
-
-        leverage = 6
-        budget_target = 30
-
-    elif score >= 6:
-
-        leverage = 5
-        budget_target = 20
-
-    else:
-
-        leverage = 3
-        budget_target = 10
-
-    leverage = max(
-        leverage,
-        MIN_LEVERAGE
-    )
-
-    # Stop genişse kaldıraç düşür
-    if stop_percent > 4:
-
-        leverage = min(
-            leverage,
-            3
-        )
-
-    elif stop_percent > 3:
-
-        leverage = min(
-            leverage,
-            5
-        )
-
-    elif stop_percent > 2:
-
-        leverage = min(
-            leverage,
-            6
-        )
-
-    # --------------------------------------------------------
-    # Risk hesabı
-    # --------------------------------------------------------
-
-    risk_per_dollar = (
-        stop_percent / 100
-    ) * leverage
-
-    if risk_per_dollar <= 0:
-        return None
-
-    max_budget = (
-        MAX_RISK
-        / risk_per_dollar
-    )
-
-    budget = min(
-        budget_target,
-        max_budget,
-        CAPITAL
-    )
-
-    # Çok küçük pozisyon gönderme
-    if budget < 5:
-        return None
-
-    estimated_loss = (
-        budget
-        * leverage
-        * stop_percent
-        / 100
-    )
-
-    if estimated_loss > MAX_RISK + 0.01:
-        return None
-
-    # --------------------------------------------------------
-    # Kâr
-    # --------------------------------------------------------
-
-    tp1_percent = (
-        abs(tp1 - price)
-        / price
-    ) * 100
-
-    tp2_percent = (
-        abs(tp2 - price)
-        / price
-    ) * 100
-
-    profit1 = (
-        budget
-        * leverage
-        * tp1_percent
-        / 100
-    )
-
-    profit2 = (
-        budget
-        * leverage
-        * tp2_percent
-        / 100
-    )
-
-    return {
-        "entry": price,
-        "stop": stop,
-        "tp1": tp1,
-        "tp2": tp2,
-        "stop_percent": stop_percent,
-        "budget": budget,
-        "leverage": leverage,
-        "loss": estimated_loss,
-        "profit1": profit1,
-        "profit2": profit2
-    }
-
-
-# ============================================================
-# ANA SİNYAL
-# ============================================================
-
-def evaluate_coin(
-    data,
-    btc,
-    news
-):
-
-    symbol = data["symbol"]
-
-    direction = determine_direction(
-        data,
-        btc
-    )
-
-    if not direction:
-        return None
-
-    # --------------------------------------------------------
-    # Momentum
-    # --------------------------------------------------------
-
-    if not momentum_confirmation(
-        data,
-        direction
-    ):
-        return None
-
-    # --------------------------------------------------------
-    # Futures
-    # --------------------------------------------------------
-
-    derivatives = derivatives_confirmation(
-        symbol,
-        direction
-    )
-
-    # Negatif futures doğrulaması
-    if derivatives["funding_score"] < 0:
-        return None
-
-    # OI'nin tersine hareket etmesini istemiyoruz
-    if derivatives["oi_change"] < -1.0:
-        return None
-
-    # --------------------------------------------------------
-    # Haber
-    # --------------------------------------------------------
-
-    sentiment, titles = news_for_coin(
-        symbol,
-        news
-    )
-
-    # --------------------------------------------------------
-    # Skor
-    # --------------------------------------------------------
-
-    score = 0
-
-    # 1H + 4H trend
-    score += 2
-
-    # BTC uyumu
-    if btc["direction"] == data["trend"]:
-
-        score += 2
-
-    elif btc["direction"] == "NÖTR":
-
-        score += 1
-
-    # Hacim
-    if data["volume_ratio"] >= 2:
-
-        score += 2
-
-    elif data["volume_ratio"] >= 1.4:
-
-        score += 1
-
-    else:
-
-        return None
-
-    # Momentum
-    score += 2
-
-    # OI
-    if derivatives["oi_change"] >= 1:
-
-        score += 1
-
-    # Funding
-    if derivatives["funding_score"] > 0:
-
-        score += 1
-
-    # Haber
-    if sentiment != "NÖTR":
-
-        score += 1
-
-    # --------------------------------------------------------
-    # Çok güçlü için daha yüksek eşik
-    # --------------------------------------------------------
-
-    if score < 7:
-        return None
-
-    # --------------------------------------------------------
-    # Trade plan
-    # --------------------------------------------------------
-
-    plan = create_plan(
-        data,
-        direction,
-        score
-    )
-
-    if not plan:
-        return None
-
-    # --------------------------------------------------------
-    # GİRİŞ GÜNCELLİK KONTROLÜ
-    # --------------------------------------------------------
-
-    live = mark_price(symbol)
-
-    if live <= 0:
-        live = data["price"]
-
-    entry = plan["entry"]
-
-    difference = (
-        abs(live - entry)
-        / entry
-    ) * 100
-
-    # Sinyal fiyatından %0.5 fazla uzaklaşmışsa
-    # eski sinyal gönderme.
-    if difference > 0.50:
-
-        return None
-
-    plan["entry"] = live
-
-    # --------------------------------------------------------
-    # Son güvenlik hesabı
-    # --------------------------------------------------------
-
-    new_stop_percent = (
-        abs(plan["stop"] - live)
-        / live
-    ) * 100
-
-    if new_stop_percent > MAX_STOP_PERCENT:
-
-        return None
-
-    # --------------------------------------------------------
-    # Güven etiketi
-    # --------------------------------------------------------
-
-    if score >= 10:
-
-        label = "🚀 ÇOK GÜÇLÜ"
-
-    elif score >= 8:
-
-        label = "🟢 GÜÇLÜ"
-
-    else:
-
-        label = "🟡 ORTA GÜÇLÜ"
-
-    # --------------------------------------------------------
-    # NEDEN
-    # --------------------------------------------------------
-
-    reasons = []
-
-    if direction == "LONG":
-
-        reasons.append(
-            "1H ve 4H trend yukarı."
-        )
-
-        reasons.append(
-            "Momentum alıcı tarafında."
-        )
-
-    else:
-
-        reasons.append(
-            "1H ve 4H trend aşağı."
-        )
-
-        reasons.append(
-            "Momentum satıcı tarafında."
-        )
-
-    if data["volume_ratio"] >= 1.4:
-
-        reasons.append(
-            "Hacim hareketi destekliyor."
-        )
-
-    if derivatives["oi_change"] > 0:
-
-        reasons.append(
-            "Open Interest yükseliyor."
-        )
-
-    if derivatives["funding_score"] > 0:
-
-        reasons.append(
-            "Funding yönü pozisyonu destekliyor."
-        )
-
-    if sentiment == "POZİTİF":
-
-        reasons.append(
-            "Coinle doğrudan ilişkili olumlu haber bulundu."
-        )
-
-    elif sentiment == "NEGATİF":
-
-        reasons.append(
-            "Coinle doğrudan ilişkili negatif haber bulundu."
-        )
-
-    return {
-        "symbol": symbol,
-        "direction": direction,
-        "score": score,
-        "label": label,
-        "plan": plan,
-        "sentiment": sentiment,
-        "titles": titles,
-        "reasons": reasons,
-        "funding": derivatives["funding"],
-        "oi": derivatives["oi_change"]
-    }
-
-
-# ============================================================
-# SOLANA RADAR
+# STATE
 # ============================================================
 
 def load_state():
-
-    if not os.path.exists(
-        SOLANA_STATE_FILE
-    ):
-
+    if not os.path.exists(STATE_FILE):
         return {}
 
     try:
-
-        with open(
-            SOLANA_STATE_FILE,
-            "r",
-            encoding="utf-8"
-        ) as f:
-
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-
     except:
-
         return {}
 
 
 def save_state(state):
-
-    with open(
-        SOLANA_STATE_FILE,
-        "w",
-        encoding="utf-8"
-    ) as f:
-
-        json.dump(
-            state,
-            f,
-            indent=2
-        )
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+    except Exception as e:
+        print("State kayıt hatası:", e)
 
 
-def commit_state():
+# ============================================================
+# DEXSCREENER
+# ============================================================
+
+def get_token_pairs(chain="solana"):
+    url = f"{DEX_BASE}/token-profiles/latest/v1"
 
     try:
+        r = requests.get(url, timeout=15)
 
-        subprocess.run(
-            [
-                "git",
-                "config",
-                "user.name",
-                "crypto-alert-bot"
-            ],
-            check=False
-        )
+        if not r.ok:
+            print("Token profile API hata:", r.status_code)
+            return []
 
-        subprocess.run(
-            [
-                "git",
-                "config",
-                "user.email",
-                "crypto-alert-bot@users.noreply.github.com"
-            ],
-            check=False
-        )
+        data = r.json()
 
-        subprocess.run(
-            [
-                "git",
-                "add",
-                SOLANA_STATE_FILE
-            ],
-            check=False
-        )
+        if not isinstance(data, list):
+            return []
 
-        subprocess.run(
-            [
-                "git",
-                "commit",
-                "-m",
-                "Update Solana alert state"
-            ],
-            check=False
-        )
-
-        subprocess.run(
-            [
-                "git",
-                "push"
-            ],
-            check=False
-        )
-
-    except Exception as e:
-
-        print("Git:", e)
-
-
-def solana_profiles():
-
-    urls = [
-        "https://api.dexscreener.com/token-profiles/latest/v1",
-        "https://api.dexscreener.com/token-boosts/latest/v1"
-    ]
-
-    addresses = []
-
-    for url in urls:
-
-        data = get(
-            url,
-            timeout=15
-        )
-
-        if not data:
-            continue
+        result = []
 
         for item in data:
+            if item.get("chainId") == chain:
+                result.append(item)
 
-            if item.get(
-                "chainId"
-            ) != "solana":
+        return result
 
-                continue
-
-            address = item.get(
-                "tokenAddress"
-            )
-
-            if (
-                address
-                and
-                address not in addresses
-            ):
-
-                addresses.append(
-                    address
-                )
-
-    return addresses[:25]
+    except Exception as e:
+        print("Token profile hata:", e)
+        return []
 
 
-def solana_pair(address):
+def get_pairs_for_token(address):
+    url = f"{DEX_BASE}/latest/dex/tokens/{address}"
 
-    data = get(
-        f"https://api.dexscreener.com/latest/dex/tokens/{address}",
-        timeout=15
-    )
+    try:
+        r = requests.get(url, timeout=15)
 
-    if not data:
+        if not r.ok:
+            return []
+
+        data = r.json()
+
+        return data.get("pairs", []) or []
+
+    except Exception as e:
+        print("Pair API hata:", e)
+        return []
+
+
+# ============================================================
+# YARDIMCI
+# ============================================================
+
+def safe_float(value, default=0.0):
+    try:
+        return float(value)
+    except:
+        return default
+
+
+def format_money(value):
+    if value >= 1000000:
+        return f"${value / 1000000:.2f}M"
+
+    if value >= 1000:
+        return f"${value / 1000:.1f}K"
+
+    return f"${value:.0f}"
+
+
+def percent(value):
+    return f"{value:.1f}%"
+
+
+# ============================================================
+# 5 DK / 15 DK HACİM
+# ============================================================
+
+def get_volume_acceleration(pair):
+    """
+    DEX Screener 5m ve 1h hacim verilerini kullanır.
+
+    Amaç:
+    - 5m hacim çok yükselmiş mi?
+    - 5m hacim, 1h hacminin anlamlı bölümünü oluşturuyor mu?
+    """
+
+    volume = pair.get("volume") or {}
+
+    v5 = safe_float(volume.get("m5"))
+    v1h = safe_float(volume.get("h1"))
+
+    if v1h <= 0:
+        return 0.0, 0.0
+
+    # 1 saatlik hacmin %25'i son 5 dakikada gerçekleşiyorsa
+    # ciddi hızlanma kabul ediyoruz.
+    ratio = (v5 * 12) / v1h
+
+    return v5, ratio
+
+
+# ============================================================
+# İŞLEM ANALİZİ
+# ============================================================
+
+def get_transaction_data(pair):
+    txns = pair.get("txns") or {}
+
+    m5 = txns.get("m5") or {}
+    m15 = txns.get("m15") or {}
+    h1 = txns.get("h1") or {}
+
+    buys_5 = int(safe_float(m5.get("buys")))
+    sells_5 = int(safe_float(m5.get("sells")))
+
+    buys_15 = int(safe_float(m15.get("buys")))
+    sells_15 = int(safe_float(m15.get("sells")))
+
+    buys_1h = int(safe_float(h1.get("buys")))
+    sells_1h = int(safe_float(h1.get("sells")))
+
+    return {
+        "buys_5": buys_5,
+        "sells_5": sells_5,
+        "buys_15": buys_15,
+        "sells_15": sells_15,
+        "buys_1h": buys_1h,
+        "sells_1h": sells_1h,
+    }
+
+
+# ============================================================
+# ALICI / SATICI ORANI
+# ============================================================
+
+def buyer_seller_ratio(buys, sells):
+    if sells <= 0:
+        if buys > 0:
+            return 99.0
+        return 0.0
+
+    return buys / sells
+
+
+# ============================================================
+# LİKİDİTE
+# ============================================================
+
+def liquidity_change(pair):
+    """
+    DEX Screener geçmiş likidite verisini her zaman sağlamayabilir.
+    Bu nedenle mevcut likiditeyi döndürür.
+    State üzerinden önceki değer varsa değişimi hesaplar.
+    """
+
+    liquidity = pair.get("liquidity") or {}
+
+    usd = safe_float(liquidity.get("usd"))
+
+    return usd
+
+
+# ============================================================
+# SOSYAL / BOOST
+# ============================================================
+
+def social_activity(pair):
+    """
+    Boost veya sosyal bağlantı varlığı ekstra puan verir.
+    Fakat tek başına alarm oluşturmaz.
+    """
+
+    score = 0
+
+    boosts = pair.get("boosts") or {}
+    active_boosts = safe_float(boosts.get("active"))
+
+    if active_boosts > 0:
+        score += 1
+
+    info = pair.get("info") or {}
+
+    socials = info.get("socials") or []
+
+    if len(socials) > 0:
+        score += 1
+
+    return score
+
+
+# ============================================================
+# ERKEN UYARI ANALİZİ
+# ============================================================
+
+def analyze_pair(pair, previous=None):
+
+    base_token = pair.get("baseToken") or {}
+
+    symbol = base_token.get("symbol", "UNKNOWN")
+    address = base_token.get("address", "")
+
+    if not address:
         return None
 
-    pairs = data.get(
-        "pairs",
-        []
-    )
+    price_change = pair.get("priceChange") or {}
 
-    pairs = [
-        p for p in pairs
-        if p.get("chainId") == "solana"
-    ]
+    change_5m = safe_float(price_change.get("m5"))
+    change_1h = safe_float(price_change.get("h1"))
+    change_6h = safe_float(price_change.get("h6"))
+    change_24h = safe_float(price_change.get("h24"))
 
-    if not pairs:
+    liquidity = liquidity_change(pair)
+
+    volume = pair.get("volume") or {}
+
+    volume_5m = safe_float(volume.get("m5"))
+    volume_1h = safe_float(volume.get("h1"))
+
+    # ========================================================
+    # TEMEL FİLTRELER
+    # ========================================================
+
+    if liquidity < MIN_LIQUIDITY:
         return None
 
-    pairs.sort(
-        key=lambda x: float(
-            x.get(
-                "liquidity",
-                {}
-            ).get(
-                "usd",
-                0
-            ) or 0
+    # Zaten aşırı yükselmiş coinleri ele
+    if change_24h >= MAX_PUMP:
+        return None
+
+    # Erken hareket başlamamışsa ilgilenme
+    if change_1h < MIN_MOVE and change_5m < MIN_MOVE:
+        return None
+
+    # ========================================================
+    # İŞLEMLER
+    # ========================================================
+
+    tx = get_transaction_data(pair)
+
+    buys_5 = tx["buys_5"]
+    sells_5 = tx["sells_5"]
+
+    buys_15 = tx["buys_15"]
+    sells_15 = tx["sells_15"]
+
+    buys_1h = tx["buys_1h"]
+    sells_1h = tx["sells_1h"]
+
+    ratio_5 = buyer_seller_ratio(buys_5, sells_5)
+    ratio_15 = buyer_seller_ratio(buys_15, sells_15)
+    ratio_1h = buyer_seller_ratio(buys_1h, sells_1h)
+
+    total_5 = buys_5 + sells_5
+    total_15 = buys_15 + sells_15
+    total_1h = buys_1h + sells_1h
+
+    # İşlem sayısı çok düşükse erken alarm verme
+    if total_5 < 20 and total_15 < 50:
+        return None
+
+    # ========================================================
+    # HACİM İVMESİ
+    # ========================================================
+
+    volume_ratio = 0
+
+    if volume_1h > 0:
+        volume_ratio = (volume_5m * 12) / volume_1h
+
+    volume_acceleration = "ZAYIF"
+
+    if volume_ratio >= 3:
+        volume_acceleration = "GÜÇLÜ"
+
+    if volume_ratio >= 6:
+        volume_acceleration = "ÇOK GÜÇLÜ"
+
+    # ========================================================
+    # SKOR
+    # ========================================================
+
+    score = 0
+
+    reasons = []
+
+    # --------------------------------------------------------
+    # 1. Fiyat henüz aşırı yükselmemiş
+    # --------------------------------------------------------
+
+    if 5 <= change_1h <= 25:
+        score += 2
+        reasons.append("Fiyat henüz aşırı yükselmedi.")
+
+    elif 25 < change_1h < 40:
+        score -= 2
+
+    # --------------------------------------------------------
+    # 2. 5 dk hacim ivmesi
+    # --------------------------------------------------------
+
+    if volume_ratio >= 3:
+        score += 2
+        reasons.append("Son dakikalarda hacim hızlandı.")
+
+    if volume_ratio >= 6:
+        score += 1
+
+    # --------------------------------------------------------
+    # 3. Alıcı üstünlüğü
+    # --------------------------------------------------------
+
+    if ratio_5 >= 1.5:
+        score += 2
+        reasons.append("Kısa vadede alıcılar satıcılardan fazla.")
+
+    if ratio_5 >= 2.5:
+        score += 1
+
+    # --------------------------------------------------------
+    # 4. 15 dk teyit
+    # --------------------------------------------------------
+
+    if ratio_15 >= 1.5:
+        score += 1
+        reasons.append("15 dakikalık işlem akışında alıcı üstünlüğü var.")
+
+    # --------------------------------------------------------
+    # 5. 1 saat teyit
+    # --------------------------------------------------------
+
+    if ratio_1h >= 1.2:
+        score += 1
+
+    # --------------------------------------------------------
+    # 6. İşlem sayısı
+    # --------------------------------------------------------
+
+    if total_5 >= 100:
+        score += 1
+
+    if total_5 >= 300:
+        score += 1
+
+    # --------------------------------------------------------
+    # 7. Likidite
+    # --------------------------------------------------------
+
+    if liquidity >= 25000:
+        score += 1
+
+    # --------------------------------------------------------
+    # 8. Sosyal hareket
+    # --------------------------------------------------------
+
+    social_score = social_activity(pair)
+
+    if social_score >= 1:
+        score += 1
+
+    # ========================================================
+    # LİKİDİTE DEĞİŞİMİ
+    # ========================================================
+
+    liquidity_change_percent = 0.0
+
+    if previous:
+        old_liquidity = safe_float(previous.get("liquidity"))
+
+        if old_liquidity > 0:
+            liquidity_change_percent = (
+                (liquidity - old_liquidity) / old_liquidity
+            ) * 100
+
+    # Likidite ciddi düşüyorsa alarmı zayıflat
+    if liquidity_change_percent <= -15:
+        score -= 3
+        reasons.append("Likiditede düşüş var.")
+
+    elif liquidity_change_percent >= 10:
+        score += 1
+        reasons.append("Likidite artıyor.")
+
+    # ========================================================
+    # ALIŞ / SATIŞ DENGESİ KONTROLÜ
+    # ========================================================
+
+    if ratio_5 < 1.0:
+        score -= 3
+
+    if ratio_15 < 1.0:
+        score -= 2
+
+    # Son 5 dakikada satıcılar baskınsa alarm verme
+    if buys_5 < sells_5 and volume_ratio >= 3:
+        score -= 2
+
+    # ========================================================
+    # ÇOK YÜKSEK FİYAT HAREKETİ
+    # ========================================================
+
+    if change_1h >= 25:
+        # Ancak ekstra güçlü teyit varsa tamamen silme
+        if ratio_5 >= 2.5 and volume_ratio >= 6:
+            score -= 1
+        else:
+            return None
+
+    # ========================================================
+    # SON KARAR
+    # ========================================================
+
+    if score < 7:
+        return None
+
+    # ========================================================
+    # TEKRAR KONTROLÜ
+    # ========================================================
+
+    return {
+        "symbol": symbol,
+        "address": address,
+
+        "change_5m": change_5m,
+        "change_1h": change_1h,
+        "change_6h": change_6h,
+        "change_24h": change_24h,
+
+        "liquidity": liquidity,
+        "liquidity_change": liquidity_change_percent,
+
+        "volume_5m": volume_5m,
+        "volume_1h": volume_1h,
+        "volume_ratio": volume_ratio,
+        "volume_acceleration": volume_acceleration,
+
+        "buys_5": buys_5,
+        "sells_5": sells_5,
+
+        "buys_15": buys_15,
+        "sells_15": sells_15,
+
+        "buys_1h": buys_1h,
+        "sells_1h": sells_1h,
+
+        "ratio_5": ratio_5,
+        "ratio_15": ratio_15,
+        "ratio_1h": ratio_1h,
+
+        "score": score,
+        "reasons": reasons,
+
+        "pair_url": pair.get(
+            "url",
+            f"https://dexscreener.com/solana/{pair.get('pairAddress', address)}"
         ),
-        reverse=True
-    )
 
-    return pairs[0]
+        "pair_address": pair.get("pairAddress", address)
+    }
 
 
-def solana_radar():
+# ============================================================
+# TELEGRAM MESAJI
+# ============================================================
 
-    state = load_state()
+def build_message(data):
 
-    now = datetime.now(
-        timezone.utc
-    )
+    if data["score"] >= 11:
+        level = "🚀 ÇOK GÜÇLÜ ERKEN HAREKET"
+    elif data["score"] >= 9:
+        level = "🟢 GÜÇLÜ ERKEN HAREKET"
+    else:
+        level = "🟡 ERKEN AŞAMA"
 
-    cleaned = {}
+    reasons = data["reasons"][:4]
 
-    for address, stamp in state.items():
+    reason_text = ""
 
-        try:
+    for reason in reasons:
+        reason_text += f"• {reason}\n"
 
-            old = datetime.fromisoformat(
-                stamp
-            )
+    liquidity_change = data["liquidity_change"]
 
-            if (
-                now - old
-                <
-                timedelta(hours=24)
-            ):
+    if liquidity_change > 0:
+        liquidity_text = f"+{liquidity_change:.1f}%"
+    elif liquidity_change < 0:
+        liquidity_text = f"{liquidity_change:.1f}%"
+    else:
+        liquidity_text = "Yeni veri"
 
-                cleaned[address] = stamp
-
-        except:
-
-            pass
-
-    state = cleaned
-
-    addresses = solana_profiles()
-
-    for address in addresses:
-
-        if address in state:
-            continue
-
-        pair = solana_pair(
-            address
-        )
-
-        if not pair:
-            continue
-
-        try:
-
-            changes = pair.get(
-                "priceChange",
-                {}
-            )
-
-            change1h = float(
-                changes.get(
-                    "h1",
-                    0
-                ) or 0
-            )
-
-            change6h = float(
-                changes.get(
-                    "h6",
-                    0
-                ) or 0
-            )
-
-            change24h = float(
-                changes.get(
-                    "h24",
-                    0
-                ) or 0
-            )
-
-            volume = pair.get(
-                "volume",
-                {}
-            )
-
-            volume1h = float(
-                volume.get(
-                    "h1",
-                    0
-                ) or 0
-            )
-
-            volume24h = float(
-                volume.get(
-                    "h24",
-                    0
-                ) or 0
-            )
-
-            if volume24h <= 0:
-                continue
-
-            volume_ratio = (
-                volume1h
-                /
-                (volume24h / 24)
-            )
-
-            liquidity = float(
-                pair.get(
-                    "liquidity",
-                    {}
-                ).get(
-                    "usd",
-                    0
-                ) or 0
-            )
-
-            txns = pair.get(
-                "txns",
-                {}
-            ).get(
-                "h1",
-                {}
-            )
-
-            buys = int(
-                txns.get(
-                    "buys",
-                    0
-                ) or 0
-            )
-
-            sells = int(
-                txns.get(
-                    "sells",
-                    0
-                ) or 0
-            )
-
-            total = buys + sells
-
-            buyer_ratio = (
-                buys
-                /
-                max(sells, 1)
-            )
-
-            # Çok yükselmiş coinleri ele
-            if change1h >= 25:
-                continue
-
-            if change6h >= 40:
-                continue
-
-            if change24h >= 100:
-                continue
-
-            if change1h <= 0:
-                continue
-
-            if volume_ratio < 1.8:
-                continue
-
-            if liquidity < 10000:
-                continue
-
-            if total < 40:
-                continue
-
-            if buyer_ratio < 1.15:
-                continue
-
-            score = 0
-
-            if 3 <= change1h < 10:
-                score += 3
-
-            elif 10 <= change1h < 15:
-                score += 2
-
-            elif 15 <= change1h < 25:
-                score += 1
-
-            else:
-                continue
-
-            if volume_ratio >= 5:
-                score += 4
-
-            elif volume_ratio >= 3:
-                score += 3
-
-            else:
-                score += 2
-
-            if buyer_ratio >= 2:
-                score += 3
-
-            elif buyer_ratio >= 1.5:
-                score += 2
-
-            else:
-                score += 1
-
-            if total >= 500:
-                score += 2
-
-            elif total >= 100:
-                score += 1
-
-            if liquidity >= 50000:
-                score += 2
-
-            else:
-                score += 1
-
-            if pair.get("boosts"):
-                score += 1
-
-            if score < 9:
-                continue
-
-            token = pair.get(
-                "baseToken",
-                {}
-            )
-
-            name = token.get(
-                "symbol",
-                "UNKNOWN"
-            )
-
-            if change1h <= 10:
-                stage = "🟢 ERKEN HAREKET"
-            else:
-                stage = "🟡 ERKEN AŞAMA"
-
-            message = f"""
+    message = f"""
 🚨 ERKEN UYARI — SOLANA
 
-🪙 {name}
-📈 Son hareket: {change1h:.1f}%
-🔥 Hacim: Normalden {volume_ratio:.1f}x
-👥 Alıcı işlemleri: {buys}
-💧 Likidite: ${liquidity:,.0f}
+🪙 {data["symbol"]}
+
+📈 Son 1s hareket: {percent(data["change_1h"])}
+📈 Son 5dk hareket: {percent(data["change_5m"])}
+
+🔥 Hacim: {data["volume_ratio"]:.1f}x
+📊 5dk hacim ivmesi: {data["volume_acceleration"]}
+
+👥 Alıcı: {data["buys_5"]}
+🔻 Satıcı: {data["sells_5"]}
+⚖️ Alıcı/Satıcı: {data["ratio_5"]:.1f}x
+
+👥 15dk Alıcı: {data["buys_15"]}
+🔻 15dk Satıcı: {data["sells_15"]}
+
+💧 Likidite: {format_money(data["liquidity"])}
+📊 Likidite değişimi: {liquidity_text}
 
 💡 Neden dikkat çekti?
-• Fiyat henüz aşırı yükselmedi.
-• Hacim normalin üzerine çıktı.
-• Alıcı hareketi güçlendi.
-• İşlem sayısı arttı.
-
-{stage}
+{reason_text}
+{level}
 
 ⚠️ Meme coin — çok yüksek risk
 📍 Solana
 🔎 Phantom'dan kontrol et.
 
 🔗 DEX Screener:
-{pair.get("url", "")}
+{data["pair_url"]}
 """
 
-            telegram(message)
-
-            state[address] = now.isoformat()
-
-        except Exception as e:
-
-            print(
-                "Solana analiz:",
-                e
-            )
-
-    save_state(state)
-
-    commit_state()
+    return message.strip()
 
 
 # ============================================================
-# ANA
+# ANA TARAMA
 # ============================================================
 
 def main():
 
-    print(
-        "================================"
-    )
+    print("======================================")
+    print("SOLANA ERKEN UYARI BOTU")
+    print("======================================")
 
-    print(
-        "CRYPTO ALERT BOT BAŞLADI"
-    )
+    state = load_state()
 
-    print(
-        "================================"
-    )
+    profiles = get_token_pairs()
 
-    news = get_news()
+    print("Token profilleri:", len(profiles))
 
-    btc = btc_direction()
+    alerts = []
 
-    print(
-        "BTC:",
-        btc["direction"],
-        "RSI:",
-        round(
-            btc["rsi"],
-            1
-        )
-    )
+    now = datetime.now(timezone.utc)
 
-    tickers = ticker_24h()
+    for profile in profiles:
 
-    coins = []
+        address = profile.get("tokenAddress")
 
-    for item in tickers:
-
-        symbol = item.get(
-            "symbol",
-            ""
-        )
-
-        if not symbol.endswith(
-            "USDT"
-        ):
-            continue
-
-        if (
-            symbol.endswith("UPUSDT")
-            or
-            symbol.endswith("DOWNUSDT")
-        ):
+        if not address:
             continue
 
         try:
 
-            volume = float(
-                item.get(
-                    "quoteVolume",
-                    0
-                )
+            pairs = get_pairs_for_token(address)
+
+            if not pairs:
+                continue
+
+            # Solana pairleri
+            sol_pairs = [
+                p for p in pairs
+                if p.get("chainId") == "solana"
+            ]
+
+            if not sol_pairs:
+                continue
+
+            # En yüksek likiditeli pair
+            sol_pairs.sort(
+                key=lambda x: safe_float(
+                    (x.get("liquidity") or {}).get("usd")
+                ),
+                reverse=True
             )
 
-            coins.append(
-                (
-                    symbol,
-                    volume
-                )
+            pair = sol_pairs[0]
+
+            result = analyze_pair(
+                pair,
+                state.get(address)
             )
 
-        except:
+            # Son veri state'e yaz
+            liquidity = safe_float(
+                (pair.get("liquidity") or {}).get("usd")
+            )
 
-            pass
+            state[address] = {
+                "symbol": (pair.get("baseToken") or {}).get(
+                    "symbol",
+                    "UNKNOWN"
+                ),
+                "liquidity": liquidity,
+                "last_check": now.isoformat()
+            }
 
-    coins.sort(
-        key=lambda x: x[1],
+            if result is None:
+                continue
+
+            # =================================================
+            # TEKRAR ALARMI ENGELLE
+            # =================================================
+
+            old = state.get(address, {})
+
+            last_alert = old.get("last_alert")
+
+            if last_alert:
+
+                try:
+                    last_dt = datetime.fromisoformat(last_alert)
+
+                    if now - last_dt < timedelta(hours=REPEAT_HOURS):
+                        continue
+
+                except:
+                    pass
+
+            # Alert kaydet
+            state[address]["last_alert"] = now.isoformat()
+
+            alerts.append(result)
+
+        except Exception as e:
+            print("Token analiz hata:", address, e)
+
+        # API'yi gereksiz zorlamamak için
+        time.sleep(0.15)
+
+    # ========================================================
+    # EN GÜÇLÜLERİ ÖNE AL
+    # ========================================================
+
+    alerts.sort(
+        key=lambda x: (
+            x["score"],
+            x["volume_ratio"],
+            x["ratio_5"]
+        ),
         reverse=True
     )
 
-    selected = [
-        x[0]
-        for x in coins[:MAX_COINS]
-    ]
+    # En fazla 3 alarm
+    alerts = alerts[:3]
 
-    for special in SPECIAL_COINS:
+    for alert in alerts:
 
-        if special not in selected:
+        message = build_message(alert)
 
-            selected.append(
-                special
-            )
+        print(message)
 
-    opportunities = []
+        send_telegram(message)
 
-    for i, symbol in enumerate(
-        selected,
-        1
-    ):
+        time.sleep(1)
 
-        print(
-            f"[{i}/{len(selected)}]",
-            symbol
-        )
+    save_state(state)
 
-        data = analyze_coin(
-            symbol
-        )
-
-        if not data:
-            continue
-
-        result = evaluate_coin(
-            data,
-            btc,
-            news
-        )
-
-        if result:
-
-            opportunities.append(
-                result
-            )
-
-    # ========================================================
-    # EN GÜÇLÜ SİNYAL
-    # ========================================================
-
-    if opportunities:
-
-        opportunities.sort(
-            key=lambda x: x["score"],
-            reverse=True
-        )
-
-        best = opportunities[0]
-
-        plan = best["plan"]
-
-        message = f"""
-🚨 FIRSAT
-
-🪙 {best["symbol"]}
-📊 {best["direction"]}
-🔥 Sinyal: {best["label"]}
-
-💵 Bütçe: ${plan["budget"]:.2f}
-⚡ Kaldıraç: {plan["leverage"]}x
-
-📍 Giriş: {plan["entry"]:.8f}
-🛑 Stop: {plan["stop"]:.8f}
-🎯 TP1: {plan["tp1"]:.8f}
-🎯 TP2: {plan["tp2"]:.8f}
-
-📏 Stop mesafesi: %{plan["stop_percent"]:.2f}
-
-🔻 Tahmini zarar: ${plan["loss"]:.2f}
-🟢 TP1 kâr: ${plan["profit1"]:.2f}
-🟢 TP2 kâr: ${plan["profit2"]:.2f}
-
-📰 Haber: {best["sentiment"]}
-"""
-
-        if best["titles"]:
-
-            message += (
-                "\n📰 "
-                + best["titles"][0]
-                + "\n"
-            )
-
-        message += "\n💡 Neden?\n"
-
-        for reason in best["reasons"]:
-
-            message += (
-                "• "
-                + reason
-                + "\n"
-            )
-
-        message += f"""
-📊 Funding: {best["funding"]:.5f}
-📈 OI değişimi: {best["oi"]:+.2f}%
-
-⚠️ Manuel değerlendirme içindir.
-Otomatik emir açılmaz.
-"""
-
-        telegram(message)
-
-    else:
-
-        message = f"""
-🟢 PİYASA TARAMASI TAMAMLANDI
-
-💵 Sermaye: ${CAPITAL:.2f}
-
-🌐 BTC DURUMU
-Trend: {btc["direction"]}
-RSI: {btc["rsi"]:.1f}
-6s değişim: {btc["change6h"]:+.2f}%
-
-🔎 {len(selected)} coin tarandı.
-
-⏸️ WAIT — Doğrulaması yeterli işlem bulunamadı.
-
-📌 Sıkı filtreler:
-• 1H + 4H trend uyumu
-• BTC yön kontrolü
-• Momentum doğrulaması
-• Hacim doğrulaması
-• Funding kontrolü
-• Open Interest kontrolü
-• Maksimum %5 stop
-• Minimum 3x kaldıraç
-• Maksimum $2.50 planlanan zarar
-• Güncel giriş fiyatı kontrolü
-• İlgili haber kontrolü
-
-⚠️ Otomatik emir açılmaz.
-Manuel değerlendirme içindir.
-"""
-
-        telegram(message)
-
-    # ========================================================
-    # SOLANA
-    # ========================================================
-
-    try:
-
-        solana_radar()
-
-    except Exception as e:
-
-        print(
-            "Solana radar:",
-            e
-        )
-
-    print(
-        "BOT TAMAMLANDI"
-    )
+    print("--------------------------------------")
+    print("Tarama tamamlandı.")
+    print("Alarm sayısı:", len(alerts))
+    print("--------------------------------------")
 
 
 if __name__ == "__main__":
-
     main()

@@ -90,5 +90,85 @@
     "url": "https://dexscreener.com/solana/gehprcgwqrbws97e4jzqzwbbhwy7zjtqx6ijkoecorkq",
     "last_seen": 1790770353,
     "last_alert": 1790770354
+  },
+  "HnFFnT64a5YYSUgNYt4Kr6qvVFr4FxbYLMngTU7kjWLH": {
+    "symbol": "GENNYWEALTH",
+    "name": "Generational Wealth",
+    "pair_address": "HnFFnT64a5YYSUgNYt4Kr6qvVFr4FxbYLMngTU7kjWLH",
+    "price_usd": 8.704e-05,
+    "change_5m": -1.45,
+    "change_1h": 4.25,
+    "change_6h": 52.86,
+    "change_24h": 52.86,
+    "volume_5m": 834.95,
+    "volume_1h": 17273.31,
+    "volume_6h": 51021.76,
+    "volume_24h": 51021.76,
+    "buys_5m": 13,
+    "sells_5m": 8,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 4126,
+    "sells_1h": 233,
+    "liquidity": 25199.61,
+    "pair_age_minutes": 74.86666666666666,
+    "boost_active": 100,
+    "websites": [
+      {
+        "url": "https://gennywealth.fun",
+        "label": "Website"
+      }
+    ],
+    "socials": [
+      {
+        "url": "https://x.com/GenWealthSol_",
+        "type": "twitter"
+      },
+      {
+        "url": "https://t.me/gennywealthportal",
+        "type": "telegram"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/hnffnt64a5yysugnyt4kr6qvvfr4fxbylmngtu7kjwlh",
+    "last_seen": 1790771956,
+    "last_alert": 0
+  },
+  "7pSpVNL1g1Mof2uTpoQfPyP9eKgJ6JW2ko3zntEcxxZ7": {
+    "symbol": "OpenINU",
+    "name": "OpenINU",
+    "pair_address": "7pSpVNL1g1Mof2uTpoQfPyP9eKgJ6JW2ko3zntEcxxZ7",
+    "price_usd": 1.638e-05,
+    "change_5m": -30.3,
+    "change_1h": 9.76,
+    "change_6h": -67.46,
+    "change_24h": -67.46,
+    "volume_5m": 1519.62,
+    "volume_1h": 52599.74,
+    "volume_6h": 99263.33,
+    "volume_24h": 99263.33,
+    "buys_5m": 3,
+    "sells_5m": 23,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 343,
+    "sells_1h": 314,
+    "liquidity": 11670.53,
+    "pair_age_minutes": 86.08333333333333,
+    "boost_active": 0,
+    "websites": [
+      {
+        "url": "https://cdn.openai.com/papers/dall-e-2.pdf",
+        "label": "Website"
+      }
+    ],
+    "socials": [
+      {
+        "url": "https://x.com/openinu?s=11",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/7pspvnl1g1mof2utpoqfpyp9ekgj6jw2ko3zntecxxz7",
+    "last_seen": 1790771957,
+    "last_alert": 0
   }
 }

@@ -348,5 +348,35 @@
     "url": "https://dexscreener.com/solana/6mm1b4gwwqkag31b3zwcfm4anr8ejp7abvk4qrtqjl1a",
     "last_seen": 1790785481,
     "last_alert": 0
+  },
+  "Ee43y3rg86jFPZVBedNJVbSn6qnrPhr81qF6VyCNyk88": {
+    "symbol": "SCAPE",
+    "name": "Solscape",
+    "token_address": "3FZxe3fSQTzG7NCvnMaAHQ1KJeyAYboxcbsS1ZjfvVYj",
+    "pair_address": "Ee43y3rg86jFPZVBedNJVbSn6qnrPhr81qF6VyCNyk88",
+    "change_5m": 4.71,
+    "change_1h": 7.8,
+    "change_6h": 7.8,
+    "change_24h": 7.8,
+    "volume_5m": 478.47,
+    "volume_1h": 46959.29,
+    "buys_5m": 10,
+    "sells_5m": 9,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 285,
+    "sells_1h": 275,
+    "liquidity": 21270.2,
+    "pair_age_minutes": 40.083333333333336,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/Solscapegold",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/ee43y3rg86jfpzvbednjvbsn6qnrphr81qf6vycnyk88",
+    "last_seen": 1790797280,
+    "last_alert": 0
   }
 }

@@ -163,5 +163,50 @@
         "success": false
       }
     }
+  },
+  "7MWaHUFVgMkwHJ6Uke5W6jvRmCkmStG6EoeNeVWvbXrb": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790797277,
+    "tokens": {
+      "3FZxe3fSQTzG7NCvnMaAHQ1KJeyAYboxcbsS1ZjfvVYj": {
+        "symbol": "SCAPE",
+        "entry_move": 7.8,
+        "entry_time": 1790797277,
+        "success": false
+      }
+    }
+  },
+  "9zjfRQ75E7HdqyAzbcBL9rrrEWCnaXv5vSP7RjcMiQhi": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790797277,
+    "tokens": {
+      "3FZxe3fSQTzG7NCvnMaAHQ1KJeyAYboxcbsS1ZjfvVYj": {
+        "symbol": "SCAPE",
+        "entry_move": 7.8,
+        "entry_time": 1790797277,
+        "success": false
+      }
+    }
+  },
+  "Bc3xRcFtKBfPYetgnwKUfY57VMGWnbBax822ahz1WV5R": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790797277,
+    "tokens": {
+      "3FZxe3fSQTzG7NCvnMaAHQ1KJeyAYboxcbsS1ZjfvVYj": {
+        "symbol": "SCAPE",
+        "entry_move": 7.8,
+        "entry_time": 1790797277,
+        "success": false
+      }
+    }
   }
 }

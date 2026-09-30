@@ -502,5 +502,65 @@
     "url": "https://dexscreener.com/solana/5k3r8aixftrqznujt3as3zypyxgnmdtcghuwz1p2ykux",
     "last_seen": 1790799672,
     "last_alert": 0
+  },
+  "4pw33MzUncQx9EejM7veokeXayx5RNb7nzBE71FUnMyQ": {
+    "symbol": "Qubit",
+    "name": "Quantum Dog",
+    "token_address": "8nSQRjqWKuLYfLgdvYaYm63hBoiKSZvGqN7yVaHMfc8q",
+    "pair_address": "4pw33MzUncQx9EejM7veokeXayx5RNb7nzBE71FUnMyQ",
+    "change_5m": 56.21,
+    "change_1h": 6.63,
+    "change_6h": 6.63,
+    "change_24h": 6.63,
+    "volume_5m": 8545.3,
+    "volume_1h": 209363.56,
+    "buys_5m": 79,
+    "sells_5m": 62,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 1604,
+    "sells_1h": 1414,
+    "liquidity": 19840.53,
+    "pair_age_minutes": 17.866666666666667,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/Vexrynx/status/2105393512300896687",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/4pw33mzuncqx9eejm7veokexayx5rnb7nzbe71funmyq",
+    "last_seen": 1790801806,
+    "last_alert": 0
+  },
+  "5YzMhNDv7X6NCyxoF2HvRGw55cs7x2cjNoRpoHFn9S5o": {
+    "symbol": "PUMPKINU",
+    "name": "Pumpkinu",
+    "token_address": "B7yfFFkX4NtxtQwGdegi2DuaVssitc3FGpqF2pxUH1zM",
+    "pair_address": "5YzMhNDv7X6NCyxoF2HvRGw55cs7x2cjNoRpoHFn9S5o",
+    "change_5m": null,
+    "change_1h": 12.88,
+    "change_6h": 54.3,
+    "change_24h": 54.3,
+    "volume_5m": 0.0,
+    "volume_1h": 204127.28,
+    "buys_5m": 0,
+    "sells_5m": 0,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 177,
+    "sells_1h": 232,
+    "liquidity": 35112.43,
+    "pair_age_minutes": 62.18333333333333,
+    "boost_active": 50,
+    "socials": [
+      {
+        "url": "https://x.com/pumpkinusol",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/5yzmhndv7x6ncyxof2hvrgw55cs7x2cjnorpohfn9s5o",
+    "last_seen": 1790801806,
+    "last_alert": 0
   }
 }

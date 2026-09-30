@@ -263,5 +263,65 @@
     "url": "https://dexscreener.com/solana/4arbbuvsahyurhk4yechg3jpwstghujko3jtakmd1efm",
     "last_seen": 1790782809,
     "last_alert": 0
+  },
+  "6BEszw9ysBSRyefUkEF5vpJdfyUTrV7iYoA8NfmzC1gP": {
+    "symbol": "SGI",
+    "name": "Super Gooner Intelligence",
+    "token_address": "A8f6L4hMAe6EADayA91e7ZhAZrT76AsVvK5dXRRnpump",
+    "pair_address": "6BEszw9ysBSRyefUkEF5vpJdfyUTrV7iYoA8NfmzC1gP",
+    "change_5m": -7.39,
+    "change_1h": 19.37,
+    "change_6h": 19.37,
+    "change_24h": 19.37,
+    "volume_5m": 26336.68,
+    "volume_1h": 76703.17,
+    "buys_5m": 188,
+    "sells_5m": 184,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 669,
+    "sells_1h": 584,
+    "liquidity": 20290.4,
+    "pair_age_minutes": 16.2,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/BonnieBlue_xoxo/status/2105289650613149818",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/6beszw9ysbsryefukef5vpjdfyutrv7iyoa8nfmzc1gp",
+    "last_seen": 1790784314,
+    "last_alert": 0
+  },
+  "DtFTNkCHRgjzzrot4p1MwX1WWEBrdxKtU6aFsxVJjesE": {
+    "symbol": "PATTY",
+    "name": "Patty",
+    "token_address": "77itbEgusNTWEoD3F7mZ6Eok7tUiVrhmLx5m5TkeeUV",
+    "pair_address": "DtFTNkCHRgjzzrot4p1MwX1WWEBrdxKtU6aFsxVJjesE",
+    "change_5m": 2.41,
+    "change_1h": -0.66,
+    "change_6h": -0.66,
+    "change_24h": -0.66,
+    "volume_5m": 6788.98,
+    "volume_1h": 74966.33,
+    "buys_5m": 36,
+    "sells_5m": 41,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 694,
+    "sells_1h": 649,
+    "liquidity": 18122.68,
+    "pair_age_minutes": 46.25,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/Bloom_Energy/status/1549060740954279936/photo/1",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/dtftnkchrgjzzrot4p1mwx1wwebrdxktu6afsxvjjese",
+    "last_seen": 1790784315,
+    "last_alert": 0
   }
 }

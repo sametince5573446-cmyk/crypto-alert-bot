@@ -323,5 +323,30 @@
     "url": "https://dexscreener.com/solana/dtftnkchrgjzzrot4p1mwx1wwebrdxktu6afsxvjjese",
     "last_seen": 1790784315,
     "last_alert": 0
+  },
+  "6Mm1b4gwWQKAG31b3zwcfM4anr8eJp7ABVk4qRTQJL1A": {
+    "symbol": "DARECAT",
+    "name": "darecat",
+    "token_address": "wTv7FZouuPtAab3i5sYH8xwaZrvxahG6zrirwW8dare",
+    "pair_address": "6Mm1b4gwWQKAG31b3zwcfM4anr8eJp7ABVk4qRTQJL1A",
+    "change_5m": 32.31,
+    "change_1h": 24.72,
+    "change_6h": 5.0,
+    "change_24h": 5.0,
+    "volume_5m": 2124.29,
+    "volume_1h": 60562.1,
+    "buys_5m": 21,
+    "sells_5m": 8,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 489,
+    "sells_1h": 330,
+    "liquidity": 28179.66,
+    "pair_age_minutes": 92.06666666666666,
+    "boost_active": 0,
+    "socials": [],
+    "url": "https://dexscreener.com/solana/6mm1b4gwwqkag31b3zwcfm4anr8ejp7abvk4qrtqjl1a",
+    "last_seen": 1790785481,
+    "last_alert": 0
   }
 }

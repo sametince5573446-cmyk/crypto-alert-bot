@@ -930,5 +930,35 @@
     "url": "https://dexscreener.com/solana/hmbmscj1jbjhmqdbsbqvopxm3wkcpsavjznycrgey8mf",
     "last_seen": 1790823027,
     "last_alert": 0
+  },
+  "DfwKe9tgR2q7fnz2ME3FYfVUohx4NZFZi2tAX95GrAoY": {
+    "symbol": "SRI",
+    "name": "Super Retarded Inu",
+    "token_address": "5b7xUtsR6SEqwszsSBg5wu9f3o1V6JwUDLkoAxMkpump",
+    "pair_address": "DfwKe9tgR2q7fnz2ME3FYfVUohx4NZFZi2tAX95GrAoY",
+    "change_5m": -17.37,
+    "change_1h": 15.08,
+    "change_6h": 15.08,
+    "change_24h": 15.08,
+    "volume_5m": 43062.32,
+    "volume_1h": 240584.1,
+    "buys_5m": 491,
+    "sells_5m": 492,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 2563,
+    "sells_1h": 2366,
+    "liquidity": 19379.98,
+    "pair_age_minutes": 13.9,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/SuperRtrdInu",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/dfwke9tgr2q7fnz2me3fyfvuohx4nzfzi2tax95graoy",
+    "last_seen": 1790823756,
+    "last_alert": 0
   }
 }

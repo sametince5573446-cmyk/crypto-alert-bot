@@ -553,5 +553,20 @@
         "success": false
       }
     }
+  },
+  "4Vzn3gNvyvRu8KWYrgQLmNwwdGeD6sQf6uAtuLuQ2LAE": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790829573,
+    "tokens": {
+      "H8WTvo3ZXSYHJAcYqzCforbG8coR1FDAX2kHFfqHBAGS": {
+        "symbol": "BAGSPAY",
+        "entry_move": 24.36,
+        "entry_time": 1790829573,
+        "success": false
+      }
+    }
   }
 }

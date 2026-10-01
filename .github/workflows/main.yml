@@ -23,8 +23,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Requests kur
-        run: pip install requests
+      - name: Gerekli paketleri kur
+        run: pip install requests feedparser
 
       - name: Botu çalıştır
         env:

@@ -1270,20 +1270,20 @@
     "name": "The Black King Penguin",
     "token_address": "Ckbi3ZcnctfTGGPk1oLWmRYp6mKcuWxJ274PTf2hpump",
     "pair_address": "68WSv1nzUPskB3ajrB1niAVystKrYg1RBHRo2Q8trFYY",
-    "change_5m": -9.63,
-    "change_1h": 11.86,
-    "change_6h": 11.86,
-    "change_24h": 11.86,
-    "volume_5m": 20306.3,
-    "volume_1h": 198184.0,
-    "buys_5m": 206,
-    "sells_5m": 132,
+    "change_5m": -24.25,
+    "change_1h": 0.51,
+    "change_6h": -44.94,
+    "change_24h": -44.94,
+    "volume_5m": 4828.68,
+    "volume_1h": 153031.3,
+    "buys_5m": 74,
+    "sells_5m": 60,
     "buys_15m": 0,
     "sells_15m": 0,
-    "buys_1h": 2863,
-    "sells_1h": 2045,
-    "liquidity": 19152.83,
-    "pair_age_minutes": 57.083333333333336,
+    "buys_1h": 2090,
+    "sells_1h": 1551,
+    "liquidity": 12829.8,
+    "pair_age_minutes": 73.0,
     "boost_active": 0,
     "socials": [
       {
@@ -1292,7 +1292,7 @@
       }
     ],
     "url": "https://dexscreener.com/solana/68wsv1nzupskb3ajrb1niavystkryg1rbhro2q8trfyy",
-    "last_seen": 1790843065,
+    "last_seen": 1790844021,
     "last_alert": 0
   }
 }

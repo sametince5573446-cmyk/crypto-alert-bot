@@ -733,5 +733,35 @@
         "success": false
       }
     }
+  },
+  "66kJMF5GEVFtzb3MiRYocL4CnFgH2X5CPm8pefrrjXeJ": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790844021,
+    "tokens": {
+      "Ckbi3ZcnctfTGGPk1oLWmRYp6mKcuWxJ274PTf2hpump": {
+        "symbol": "Penguin",
+        "entry_move": 0.51,
+        "entry_time": 1790844021,
+        "success": false
+      }
+    }
+  },
+  "9Xad7vVArAyeRn6f4hGhDU9mx1KHR7BvDqa9iLb9hxLw": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790844021,
+    "tokens": {
+      "Ckbi3ZcnctfTGGPk1oLWmRYp6mKcuWxJ274PTf2hpump": {
+        "symbol": "Penguin",
+        "entry_move": 0.51,
+        "entry_time": 1790844021,
+        "success": false
+      }
+    }
   }
 }

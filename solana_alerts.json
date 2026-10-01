@@ -896,5 +896,39 @@
     "url": "https://dexscreener.com/solana/funyc9r3n19nw2ohb7eo3rb5hzxpjxek9agjuba8v9tm",
     "last_seen": 1790819877,
     "last_alert": 1790819878
+  },
+  "HMbMsCJ1JBjhmqdbSbQvopXm3WkCpsAvJZNycrgEy8mf": {
+    "symbol": "GND",
+    "name": "Gucci Nike Dior",
+    "token_address": "4ByRNjKEQbtexsJie54vCdPnSuSWibWHn49dAXmcpump",
+    "pair_address": "HMbMsCJ1JBjhmqdbSbQvopXm3WkCpsAvJZNycrgEy8mf",
+    "change_5m": 120.0,
+    "change_1h": 30.8,
+    "change_6h": 30.8,
+    "change_24h": 30.8,
+    "volume_5m": 22611.93,
+    "volume_1h": 68916.8,
+    "buys_5m": 140,
+    "sells_5m": 148,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 576,
+    "sells_1h": 605,
+    "liquidity": 20707.81,
+    "pair_age_minutes": 52.233333333333334,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/JuubCooks/status/2105475384116744317?s=20",
+        "type": "twitter"
+      },
+      {
+        "url": "https://www.tiktok.com/search?q=gucci%20nike%20dior&t=1790758080145",
+        "type": "tiktok"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/hmbmscj1jbjhmqdbsbqvopxm3wkcpsavjznycrgey8mf",
+    "last_seen": 1790823027,
+    "last_alert": 0
   }
 }

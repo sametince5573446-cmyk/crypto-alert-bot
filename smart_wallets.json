@@ -433,5 +433,65 @@
         "success": false
       }
     }
+  },
+  "CsnWuLAU3cPY6f6CTWafnpVXPVzwZpBiNPHYfMtSE6u3": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790823027,
+    "tokens": {
+      "4ByRNjKEQbtexsJie54vCdPnSuSWibWHn49dAXmcpump": {
+        "symbol": "GND",
+        "entry_move": 30.8,
+        "entry_time": 1790823027,
+        "success": false
+      }
+    }
+  },
+  "BEvw9mQbfQwbnQKy4XJQuxDbADuJMAhKaUVtdjj4fz8N": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790823027,
+    "tokens": {
+      "4ByRNjKEQbtexsJie54vCdPnSuSWibWHn49dAXmcpump": {
+        "symbol": "GND",
+        "entry_move": 30.8,
+        "entry_time": 1790823027,
+        "success": false
+      }
+    }
+  },
+  "6rtewfsivzFMhycLtdtvKGYs9wPZdagrz4fzTAVZAFRd": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790823027,
+    "tokens": {
+      "4ByRNjKEQbtexsJie54vCdPnSuSWibWHn49dAXmcpump": {
+        "symbol": "GND",
+        "entry_move": 30.8,
+        "entry_time": 1790823027,
+        "success": false
+      }
+    }
+  },
+  "JCT1Bct1Wg9iK1VYFfJQaDeKoB1oHzAdUd8vzVfxnk1E": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790823027,
+    "tokens": {
+      "4ByRNjKEQbtexsJie54vCdPnSuSWibWHn49dAXmcpump": {
+        "symbol": "GND",
+        "entry_move": 30.8,
+        "entry_time": 1790823027,
+        "success": false
+      }
+    }
   }
 }

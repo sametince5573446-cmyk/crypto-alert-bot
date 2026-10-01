@@ -418,5 +418,20 @@
         "success": false
       }
     }
+  },
+  "29D64GZ8C5dByEP9RRAd2Mwz9CadzmP7TQecUJiW7r6c": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790818582,
+    "tokens": {
+      "DkQYd9q2p7VSruiKhj54wu4F9CbyqruCRKFewg3dpump": {
+        "symbol": "AGI",
+        "entry_move": 12.46,
+        "entry_time": 1790818582,
+        "success": false
+      }
+    }
   }
 }

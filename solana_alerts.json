@@ -836,5 +836,35 @@
     "url": "https://dexscreener.com/solana/7sez1t9cesfnymcndsclyvqermdfm4cstd9chfh74bxm",
     "last_seen": 1790811960,
     "last_alert": 0
+  },
+  "5Mp4Z17NNdanseQa2yqg2eEE5xVSognN3ffDgksWeCm1": {
+    "symbol": "AGI",
+    "name": "Autistic Goat Intelligence",
+    "token_address": "DkQYd9q2p7VSruiKhj54wu4F9CbyqruCRKFewg3dpump",
+    "pair_address": "5Mp4Z17NNdanseQa2yqg2eEE5xVSognN3ffDgksWeCm1",
+    "change_5m": 2.24,
+    "change_1h": 12.46,
+    "change_6h": 1158.0,
+    "change_24h": 1158.0,
+    "volume_5m": 23144.44,
+    "volume_1h": 1135876.08,
+    "buys_5m": 151,
+    "sells_5m": 104,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 6335,
+    "sells_1h": 5152,
+    "liquidity": 71440.48,
+    "pair_age_minutes": 100.38333333333334,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/Poods444/status/2105450792165486596",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/5mp4z17nndanseqa2yqg2eee5xvsognn3ffdgkswecm1",
+    "last_seen": 1790818582,
+    "last_alert": 0
   }
 }

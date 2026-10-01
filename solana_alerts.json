@@ -866,5 +866,35 @@
     "url": "https://dexscreener.com/solana/5mp4z17nndanseqa2yqg2eee5xvsognn3ffdgkswecm1",
     "last_seen": 1790818582,
     "last_alert": 0
+  },
+  "FUnYC9R3N19NW2ohb7Eo3rB5hzxPjxEk9AGJUbA8v9tm": {
+    "symbol": ".siSTRAT",
+    "name": ".si Strategy",
+    "token_address": "5XKWu6syy2i3HWP8nf7TmNk6wGSvUNVH1iYBpwHYpump",
+    "pair_address": "FUnYC9R3N19NW2ohb7Eo3rB5hzxPjxEk9AGJUbA8v9tm",
+    "change_5m": 55.04,
+    "change_1h": 17.79,
+    "change_6h": 17.79,
+    "change_24h": 17.79,
+    "volume_5m": 33596.15,
+    "volume_1h": 106244.97,
+    "buys_5m": 305,
+    "sells_5m": 249,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 912,
+    "sells_1h": 877,
+    "liquidity": 19654.62,
+    "pair_age_minutes": 9.6,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/SIStrat_",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/funyc9r3n19nw2ohb7eo3rb5hzxpjxek9agjuba8v9tm",
+    "last_seen": 1790819877,
+    "last_alert": 1790819878
   }
 }

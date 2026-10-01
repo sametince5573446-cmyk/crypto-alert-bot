@@ -718,5 +718,20 @@
         "success": false
       }
     }
+  },
+  "6JrJ3w5CDAQeVmrKuBhUTNh2LmDyeEcEtUtqbrL3okMD": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790843065,
+    "tokens": {
+      "Ckbi3ZcnctfTGGPk1oLWmRYp6mKcuWxJ274PTf2hpump": {
+        "symbol": "Penguin",
+        "entry_move": 11.86,
+        "entry_time": 1790843065,
+        "success": false
+      }
+    }
   }
 }

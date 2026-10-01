@@ -598,5 +598,80 @@
         "success": false
       }
     }
+  },
+  "824x5dyxMXpj6s7duKRijye1f62J1o1zQN63jjvjXv4D": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790830998,
+    "tokens": {
+      "Fq7wzJ9S6TRm7NrPGEwWKmQPqdF8K1g5uTp9DGFcpump": {
+        "symbol": "FORREST",
+        "entry_move": 13.7,
+        "entry_time": 1790830998,
+        "success": false
+      }
+    }
+  },
+  "CzAHxKpexkUnGbHETADo1qVafiAeqNbWdKLC3s7MYiDj": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790830998,
+    "tokens": {
+      "Fq7wzJ9S6TRm7NrPGEwWKmQPqdF8K1g5uTp9DGFcpump": {
+        "symbol": "FORREST",
+        "entry_move": 13.7,
+        "entry_time": 1790830998,
+        "success": false
+      }
+    }
+  },
+  "D9dN32K2akhU46By8vRwzbT2nTZ1TzErwvpx3hFQNVEK": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790830998,
+    "tokens": {
+      "Fq7wzJ9S6TRm7NrPGEwWKmQPqdF8K1g5uTp9DGFcpump": {
+        "symbol": "FORREST",
+        "entry_move": 13.7,
+        "entry_time": 1790830998,
+        "success": false
+      }
+    }
+  },
+  "CxkxCQYLWVRStkWwdCcsAX6BWcPnMeKGQ3zm2m6jVjV8": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790830998,
+    "tokens": {
+      "Fq7wzJ9S6TRm7NrPGEwWKmQPqdF8K1g5uTp9DGFcpump": {
+        "symbol": "FORREST",
+        "entry_move": 13.7,
+        "entry_time": 1790830998,
+        "success": false
+      }
+    }
+  },
+  "bocRMVHymYFvsoTUqV7j8g5mQWtRWpYPB4S8Cfptqgq": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790830998,
+    "tokens": {
+      "Fq7wzJ9S6TRm7NrPGEwWKmQPqdF8K1g5uTp9DGFcpump": {
+        "symbol": "FORREST",
+        "entry_move": 13.7,
+        "entry_time": 1790830998,
+        "success": false
+      }
+    }
   }
 }

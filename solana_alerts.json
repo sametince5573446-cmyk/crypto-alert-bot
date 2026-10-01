@@ -1080,5 +1080,95 @@
     "url": "https://dexscreener.com/solana/8mxvegl1c14ddbbczqpfmldbvnmddpgqqtjwqjaykuhp",
     "last_seen": 1790830385,
     "last_alert": 0
+  },
+  "ErgojZ4yKHxJkVgQqWEbPAbt7NHctL5a3oLyP1iTin8Y": {
+    "symbol": "FORREST",
+    "name": "Forrest Pump",
+    "token_address": "Fq7wzJ9S6TRm7NrPGEwWKmQPqdF8K1g5uTp9DGFcpump",
+    "pair_address": "ErgojZ4yKHxJkVgQqWEbPAbt7NHctL5a3oLyP1iTin8Y",
+    "change_5m": -16.4,
+    "change_1h": 13.7,
+    "change_6h": 13.7,
+    "change_24h": 13.7,
+    "volume_5m": 6911.0,
+    "volume_1h": 251915.37,
+    "buys_5m": 53,
+    "sells_5m": 94,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 3082,
+    "sells_1h": 2508,
+    "liquidity": 19779.67,
+    "pair_age_minutes": 58.63333333333333,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/forrestweb3/status/2105504913317064737?s=46",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/ergojz4ykhxjkvgqqwebpabt7nhctl5a3olyp1itin8y",
+    "last_seen": 1790830998,
+    "last_alert": 0
+  },
+  "EGRWwHLfME2U2rahMu6BMqonMNeG5ND2CdVFPX1CcAE9": {
+    "symbol": "Ajax",
+    "name": "Ajax",
+    "token_address": "H9qKeikv2EuifXaMCWSFQSUvNHUu2dre9R3Gmz62mvjw",
+    "pair_address": "EGRWwHLfME2U2rahMu6BMqonMNeG5ND2CdVFPX1CcAE9",
+    "change_5m": 57.67,
+    "change_1h": 9.81,
+    "change_6h": 1038.0,
+    "change_24h": 1038.0,
+    "volume_5m": 64070.09,
+    "volume_1h": 346068.95,
+    "buys_5m": 293,
+    "sells_5m": 195,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 2301,
+    "sells_1h": 1781,
+    "liquidity": 73399.24,
+    "pair_age_minutes": 159.85,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/MiamiMinty/status/2105485968837050574?s=20",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/egrwwhlfme2u2rahmu6bmqonmneg5nd2cdvfpx1ccae9",
+    "last_seen": 1790831001,
+    "last_alert": 0
+  },
+  "5SUSFTqv4WLodUCnt8j8trA4NsrtmpBFRtbeS4fb9FgL": {
+    "symbol": "SXI",
+    "name": "Super X Inu",
+    "token_address": "4y6afgeh9JbeUJrXrVaU4A4uDYxDN6AugnnYwhrapump",
+    "pair_address": "5SUSFTqv4WLodUCnt8j8trA4NsrtmpBFRtbeS4fb9FgL",
+    "change_5m": -16.93,
+    "change_1h": 18.51,
+    "change_6h": 73.0,
+    "change_24h": 73.0,
+    "volume_5m": 7002.92,
+    "volume_1h": 299566.12,
+    "buys_5m": 155,
+    "sells_5m": 95,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 9664,
+    "sells_1h": 3893,
+    "liquidity": 34970.17,
+    "pair_age_minutes": 92.15,
+    "boost_active": 30,
+    "socials": [
+      {
+        "url": "https://x.com/SuperXInu",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/5susftqv4wloducnt8j8tra4nsrtmpbfrtbes4fb9fgl",
+    "last_seen": 1790831001,
+    "last_alert": 0
   }
 }

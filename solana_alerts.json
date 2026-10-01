@@ -1324,5 +1324,35 @@
     "url": "https://dexscreener.com/solana/3cpb9kojdqhlr2rtf22aztd3ld2mtxmkcfaunr1sqvif",
     "last_seen": 1790846731,
     "last_alert": 0
+  },
+  "2utMoByVsBZ64ZKbYxLu61MM7EUYxNCCRTbmzJ6dXzCm": {
+    "symbol": "assless",
+    "name": "assless",
+    "token_address": "2GU6JT1zpigtYAk3vAVwdrvHuzbPkUSxrUkHHGpGpump",
+    "pair_address": "2utMoByVsBZ64ZKbYxLu61MM7EUYxNCCRTbmzJ6dXzCm",
+    "change_5m": 0.83,
+    "change_1h": 28.49,
+    "change_6h": -50.68,
+    "change_24h": -50.68,
+    "volume_5m": 2313.61,
+    "volume_1h": 28415.17,
+    "buys_5m": 33,
+    "sells_5m": 17,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 394,
+    "sells_1h": 308,
+    "liquidity": 12023.02,
+    "pair_age_minutes": 90.78333333333333,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/i/communities/2039153972041101408",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/2utmobyvsbz64zkbyxlu61mm7euyxnccrtbmzj6dxzcm",
+    "last_seen": 1790851886,
+    "last_alert": 0
   }
 }

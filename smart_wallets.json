@@ -361,15 +361,21 @@
   },
   "BuGacsFWAqk8LZk7SPcJ2iqdGdUnPyTqvwSVUU48ao5o": {
     "score": 1,
-    "early_buys": 1,
+    "early_buys": 2,
     "successful_buys": 0,
-    "coins_seen": 1,
-    "last_seen": 1790808532,
+    "coins_seen": 2,
+    "last_seen": 1790851886,
     "tokens": {
       "9jAVyE3sTnVoWXLK4eorcU7uV6zhh5Q9WapdcstAYtas": {
         "symbol": "GENESIS",
         "entry_move": 12.99,
         "entry_time": 1790808532,
+        "success": false
+      },
+      "2GU6JT1zpigtYAk3vAVwdrvHuzbPkUSxrUkHHGpGpump": {
+        "symbol": "assless",
+        "entry_move": 28.49,
+        "entry_time": 1790851886,
         "success": false
       }
     }
@@ -760,6 +766,96 @@
         "symbol": "Penguin",
         "entry_move": 0.51,
         "entry_time": 1790844021,
+        "success": false
+      }
+    }
+  },
+  "CPi4TYDtFFrH5PtDD9azucZquh7U1h9uRgvg5YcWgmNy": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790851886,
+    "tokens": {
+      "2GU6JT1zpigtYAk3vAVwdrvHuzbPkUSxrUkHHGpGpump": {
+        "symbol": "assless",
+        "entry_move": 28.49,
+        "entry_time": 1790851886,
+        "success": false
+      }
+    }
+  },
+  "5iKDHeRhbebLnWTfqt5x8zxjcvfMTpAF3GcUHmNrbgC1": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790851886,
+    "tokens": {
+      "2GU6JT1zpigtYAk3vAVwdrvHuzbPkUSxrUkHHGpGpump": {
+        "symbol": "assless",
+        "entry_move": 28.49,
+        "entry_time": 1790851886,
+        "success": false
+      }
+    }
+  },
+  "FWBhxK3eqVHP9r2f9Mr1P6EPEFKrGmcaXmuKKZQjM3Rk": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790851886,
+    "tokens": {
+      "2GU6JT1zpigtYAk3vAVwdrvHuzbPkUSxrUkHHGpGpump": {
+        "symbol": "assless",
+        "entry_move": 28.49,
+        "entry_time": 1790851886,
+        "success": false
+      }
+    }
+  },
+  "wJDv8gqP8TFqUJdLGdrVpEA1vJ8sdMWiqkHT9ubCEmn": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790851886,
+    "tokens": {
+      "2GU6JT1zpigtYAk3vAVwdrvHuzbPkUSxrUkHHGpGpump": {
+        "symbol": "assless",
+        "entry_move": 28.49,
+        "entry_time": 1790851886,
+        "success": false
+      }
+    }
+  },
+  "E4AEmkjYWdzps1buetSSY3u7uhVRFu8A9UiTQrzogm6u": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790851886,
+    "tokens": {
+      "2GU6JT1zpigtYAk3vAVwdrvHuzbPkUSxrUkHHGpGpump": {
+        "symbol": "assless",
+        "entry_move": 28.49,
+        "entry_time": 1790851886,
+        "success": false
+      }
+    }
+  },
+  "4h8dr6oUEtx8LVVLRGKKPxaCbuSa1dMaU8BjQtdY8acj": {
+    "score": 0,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790851886,
+    "tokens": {
+      "2GU6JT1zpigtYAk3vAVwdrvHuzbPkUSxrUkHHGpGpump": {
+        "symbol": "assless",
+        "entry_move": 28.49,
+        "entry_time": 1790851886,
         "success": false
       }
     }

@@ -673,5 +673,50 @@
         "success": false
       }
     }
+  },
+  "HdPtG3daJ3PucbuM2UNKNjoykJ763TzrwMrJYupRMpWe": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790833042,
+    "tokens": {
+      "6tvUg9RWrYG37Tb7fVtMmHjRGRiXiGCk5svDdJUkSgBR": {
+        "symbol": "Uptober",
+        "entry_move": 14.38,
+        "entry_time": 1790833042,
+        "success": false
+      }
+    }
+  },
+  "4FmzP7wnuTnV4Ji8BzNSbbohZ4FT5yqwvASYTbvfcmbC": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790833042,
+    "tokens": {
+      "6tvUg9RWrYG37Tb7fVtMmHjRGRiXiGCk5svDdJUkSgBR": {
+        "symbol": "Uptober",
+        "entry_move": 14.38,
+        "entry_time": 1790833042,
+        "success": false
+      }
+    }
+  },
+  "7X2iuPF6cY9miKPxYm8SNE3iNdqcdWj6uKuoQmfGFwNU": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790833042,
+    "tokens": {
+      "6tvUg9RWrYG37Tb7fVtMmHjRGRiXiGCk5svDdJUkSgBR": {
+        "symbol": "Uptober",
+        "entry_move": 14.38,
+        "entry_time": 1790833042,
+        "success": false
+      }
+    }
   }
 }

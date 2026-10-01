@@ -1170,5 +1170,65 @@
     "url": "https://dexscreener.com/solana/5susftqv4wloducnt8j8tra4nsrtmpbfrtbes4fb9fgl",
     "last_seen": 1790831001,
     "last_alert": 0
+  },
+  "5gmyvPqmU4yKQjAf7jcD2AoM6n7pdteF4aH2VbXANLPq": {
+    "symbol": "Uptober",
+    "name": "Uptober",
+    "token_address": "6tvUg9RWrYG37Tb7fVtMmHjRGRiXiGCk5svDdJUkSgBR",
+    "pair_address": "5gmyvPqmU4yKQjAf7jcD2AoM6n7pdteF4aH2VbXANLPq",
+    "change_5m": 69.95,
+    "change_1h": 14.38,
+    "change_6h": 14.38,
+    "change_24h": 14.38,
+    "volume_5m": 15109.71,
+    "volume_1h": 26026.28,
+    "buys_5m": 232,
+    "sells_5m": 174,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 370,
+    "sells_1h": 255,
+    "liquidity": 19415.21,
+    "pair_age_minutes": 6.75,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/pumping_fun/status/2105520823612080300?s=20",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/5gmyvpqmu4ykqjaf7jcd2aom6n7pdtef4ah2vbxanlpq",
+    "last_seen": 1790833044,
+    "last_alert": 1790833044
+  },
+  "Em9Ru5DrybRSZL161CtKVSCF7tEwUyJ5GaWpgTFGiBPS": {
+    "symbol": "EARLY",
+    "name": "early",
+    "token_address": "9GW1GMaVeV41yiYYzfgQdnEf8ocGFenX8AsgvhWEARLY",
+    "pair_address": "Em9Ru5DrybRSZL161CtKVSCF7tEwUyJ5GaWpgTFGiBPS",
+    "change_5m": -8.62,
+    "change_1h": -4.81,
+    "change_6h": -65.56,
+    "change_24h": -65.56,
+    "volume_5m": 1068.73,
+    "volume_1h": 11687.81,
+    "buys_5m": 16,
+    "sells_5m": 13,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 226,
+    "sells_1h": 156,
+    "liquidity": 9786.32,
+    "pair_age_minutes": 87.78333333333333,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/earlyexchangeX",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/em9ru5drybrszl161ctkvscf7tewuyj5gawpgtfgibps",
+    "last_seen": 1790833045,
+    "last_alert": 0
   }
 }

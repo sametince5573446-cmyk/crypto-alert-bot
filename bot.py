@@ -1,1208 +1,1797 @@
-import os, json, time
-from xml.etree import ElementTree as ET
+import os
+import json
+import time
+import re
+import subprocess
 import requests
+import feedparser
 
-# ============================================================
-# BINANCE + SOLANA RADAR
-# Sadece analiz/uyarı üretir. OTOMATİK İŞLEM AÇMAZ.
-# ============================================================
+BINANCE = "https://data-api.binance.vision"
+BYBIT = "https://api.bybit.com"
+DEX = "https://api.dexscreener.com"
+GECKO = "https://api.geckoterminal.com/api/v2"
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
-BINANCE_SPOT = "https://data-api.binance.vision"
-BINANCE_FAPI = "https://fapi.binance.com"
-DEX = "https://api.dexscreener.com"
-GECKO = "https://api.geckoterminal.com/api/v2"
-
-CAPITAL = 100.0
-MAX_RISK = 2.50
-MAX_BINANCE_COINS = 100
-
-SPECIAL = ["XVGUSDT", "QNTUSDT"]
-
-# WAIT mesajı her taramada değil, en fazla saatte 1 kez.
-WAIT_EVERY_MINUTES = 60
-
-# Aynı Binance coininde tekrar sinyal için bekleme.
-BINANCE_REPEAT_MINUTES = 60
-
-# Solana aynı token için tekrar alarm bekleme.
-SOL_REPEAT_HOURS = 24
-
 STATE_FILE = "bot_state.json"
 
+MAX_RISK = 2.50
+START_CAPITAL = 100.0
 
-# ------------------------------------------------------------
-# GENEL
-# ------------------------------------------------------------
+SPECIAL_COINS = ["XVGUSDT", "QNTUSDT"]
+
+session = requests.Session()
+session.headers.update({
+    "User-Agent": "Mozilla/5.0 CryptoRadar/2.0"
+})
+
+
+# ============================================================
+# YARDIMCI
+# ============================================================
+
+def now():
+    return int(time.time())
+
 
 def get_json(url, params=None, timeout=15):
-    r = requests.get(
-        url,
-        params=params,
-        timeout=timeout,
-        headers={"User-Agent": "Mozilla/5.0"}
-    )
+    r = session.get(url, params=params, timeout=timeout)
     r.raise_for_status()
     return r.json()
 
 
-def telegram(text):
+def fmt_price(x):
+    x = float(x)
+
+    if x >= 100:
+        return f"{x:.2f}"
+    if x >= 1:
+        return f"{x:.4f}"
+    if x >= 0.01:
+        return f"{x:.5f}"
+    if x >= 0.0001:
+        return f"{x:.7f}"
+
+    return f"{x:.10f}"
+
+
+def clamp(x, minimum, maximum):
+    return max(minimum, min(maximum, x))
+
+
+# ============================================================
+# TELEGRAM
+# ============================================================
+
+def telegram(message):
+
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("Telegram secret eksik.")
-        return False
+        return
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
     try:
-        r = requests.post(
+        r = session.post(
             url,
             data={
                 "chat_id": TELEGRAM_CHAT_ID,
-                "text": text
+                "text": message,
+                "disable_web_page_preview": "true"
             },
             timeout=15
         )
-        print("Telegram:", r.status_code)
-        return r.ok
-    except Exception as e:
-        print("Telegram ERROR:", e)
-        return False
 
+        print("Telegram:", r.status_code)
+
+    except Exception as e:
+        print("Telegram hata:", repr(e))
+
+
+# ============================================================
+# STATE
+# ============================================================
 
 def load_state():
+
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
+
     except Exception:
+
         return {
-            "last_wait": 0,
             "binance_alerts": {},
-            "sol_alerts": {}
+            "solana_alerts": {},
+            "last_wait": 0
         }
 
 
 def save_state(state):
+
     with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False, indent=2)
+        json.dump(
+            state,
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
 
 
-def commit_state():
-    """
-    GitHub Actions permissions: contents: write gerekli.
-    State dosyasını repo'ya kaydeder.
-    """
-    os.system('git config user.name "crypto-alert-bot"')
-    os.system('git config user.email "crypto-alert-bot@users.noreply.github.com"')
-    os.system("git add bot_state.json")
-    result = os.system('git diff --cached --quiet')
-    if result != 0:
-        os.system('git commit -m "Update radar state"')
-        os.system("git push")
-    else:
-        print("State değişmedi.")
+def git_save_state():
+
+    try:
+
+        subprocess.run(
+            ["git", "config", "user.name", "crypto-radar"],
+            check=False
+        )
+
+        subprocess.run(
+            [
+                "git",
+                "config",
+                "user.email",
+                "crypto-radar@users.noreply.github.com"
+            ],
+            check=False
+        )
+
+        subprocess.run(
+            ["git", "add", STATE_FILE],
+            check=False
+        )
+
+        subprocess.run(
+            ["git", "commit", "-m", "update radar state"],
+            check=False
+        )
+
+        subprocess.run(
+            ["git", "push"],
+            check=False
+        )
+
+    except Exception as e:
+        print("Git state hata:", repr(e))
 
 
-# ------------------------------------------------------------
-# TEKNİK İNDİKATÖRLER
-# ------------------------------------------------------------
+# ============================================================
+# BINANCE SPOT
+# ============================================================
+
+def binance_exchange_info():
+
+    data = get_json(
+        f"{BINANCE}/api/v3/exchangeInfo"
+    )
+
+    result = {}
+
+    for s in data.get("symbols", []):
+
+        if (
+            s.get("status") == "TRADING"
+            and s.get("quoteAsset") == "USDT"
+        ):
+            result[s["symbol"]] = s
+
+    return result
+
+
+def binance_tickers():
+
+    return get_json(
+        f"{BINANCE}/api/v3/ticker/24hr"
+    )
+
+
+def binance_klines(symbol, interval):
+
+    return get_json(
+        f"{BINANCE}/api/v3/klines",
+        {
+            "symbol": symbol,
+            "interval": interval,
+            "limit": 80
+        }
+    )
+
+
+# ============================================================
+# TEKNİK ANALİZ
+# ============================================================
 
 def ema(values, period):
+
     if len(values) < period:
         return None
 
-    k = 2 / (period + 1)
     value = sum(values[:period]) / period
+    multiplier = 2 / (period + 1)
 
-    for x in values[period:]:
-        value = x * k + value * (1 - k)
+    for price in values[period:]:
+        value = (
+            (price - value) * multiplier
+            + value
+        )
 
     return value
 
 
 def rsi(values, period=14):
-    if len(values) < period + 1:
-        return None
+
+    if len(values) <= period:
+        return 50
 
     gains = []
     losses = []
 
     for i in range(1, len(values)):
-        diff = values[i] - values[i - 1]
-        gains.append(max(diff, 0))
-        losses.append(max(-diff, 0))
+
+        change = values[i] - values[i - 1]
+
+        gains.append(max(change, 0))
+        losses.append(max(-change, 0))
 
     avg_gain = sum(gains[:period]) / period
     avg_loss = sum(losses[:period]) / period
 
     for i in range(period, len(gains)):
-        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+
+        avg_gain = (
+            avg_gain * (period - 1)
+            + gains[i]
+        ) / period
+
+        avg_loss = (
+            avg_loss * (period - 1)
+            + losses[i]
+        ) / period
 
     if avg_loss == 0:
-        return 100.0
+        return 100
 
     rs = avg_gain / avg_loss
+
     return 100 - (100 / (1 + rs))
 
 
-def fmt_price(price):
-    if price >= 100:
-        return f"{price:.2f}"
-    if price >= 1:
-        return f"{price:.4f}"
-    if price >= 0.01:
-        return f"{price:.6f}"
-    return f"{price:.8f}"
+def candle_info(klines):
 
-
-def levels(price, side, stop_pct):
-    stop_pct = max(0.015, min(stop_pct, 0.05))
-
-    if side in ("LONG", "SPOT"):
-        stop = price * (1 - stop_pct)
-        tp1 = price * (1 + stop_pct * 1.5)
-        tp2 = price * (1 + stop_pct * 2.5)
-
-    else:  # SHORT
-        stop = price * (1 + stop_pct)
-        tp1 = price * (1 - stop_pct * 1.5)
-        tp2 = price * (1 - stop_pct * 2.5)
-
-    return stop, tp1, tp2, stop_pct
-
-
-def budget_for(score, stop_pct, side):
-    """
-    Binance:
-    SPOT -> kaldıraç yok.
-    LONG/SHORT -> minimum 3x.
-    Maksimum planlanan zarar yaklaşık $2.50.
-    """
-
-    if side == "SPOT":
-        target = 20 if score >= 7 else 10
-        budget = min(
-            target,
-            CAPITAL,
-            MAX_RISK / max(stop_pct, 0.01)
-        )
-        return 1, round(budget, 2)
-
-    leverage = 3
-    target = 10
-
-    if score >= 9:
-        leverage, target = 10, 40
-    elif score >= 8:
-        leverage, target = 8, 35
-    elif score >= 7:
-        leverage, target = 6, 30
-    elif score >= 6:
-        leverage, target = 5, 20
-
-    if stop_pct > 0.035:
-        leverage = min(leverage, 5)
-
-    if stop_pct > 0.045:
-        leverage = 3
-
-    # budget = margin.
-    # zarar = margin x kaldıraç x stop yüzdesi
-    max_by_risk = MAX_RISK / max(stop_pct * leverage, 0.01)
-
-    budget = min(
-        target,
-        CAPITAL,
-        max_by_risk
-    )
-
-    return leverage, round(budget, 2)
-
-
-# ------------------------------------------------------------
-# BINANCE HABER
-# ------------------------------------------------------------
-
-def coin_news(symbol):
-    """
-    Ücretsiz RSS.
-    Sadece başlıkta coin adı/ticker geçen haberleri alır.
-    İlgisiz Tether/OpenAI vb. haberleri coin haberine bağlamaz.
-    """
-
-    base = symbol.replace("USDT", "").lower()
-
-    feeds = [
-        "https://www.coindesk.com/arc/outboundfeeds/rss/",
-        "https://cointelegraph.com/rss"
+    closes = [
+        float(x[4])
+        for x in klines
     ]
 
-    news = []
+    volumes = [
+        float(x[5])
+        for x in klines
+    ]
 
-    for feed in feeds:
-        try:
-            response = requests.get(
-                feed,
-                timeout=8,
-                headers={"User-Agent": "Mozilla/5.0"}
+    e9 = ema(closes, 9)
+    e21 = ema(closes, 21)
+
+    recent_volume = sum(volumes[-5:]) / 5
+
+    old_volume = (
+        sum(volumes[-20:-5]) / 15
+        if len(volumes) >= 20
+        else recent_volume
+    )
+
+    volume_ratio = (
+        recent_volume / old_volume
+        if old_volume
+        else 1
+    )
+
+    change = (
+        (closes[-1] - closes[-5])
+        / closes[-5]
+        * 100
+    )
+
+    return {
+        "close": closes[-1],
+        "ema9": e9,
+        "ema21": e21,
+        "rsi": rsi(closes),
+        "volume_ratio": volume_ratio,
+        "change": change,
+        "high20": max(
+            float(x[2])
+            for x in klines[-20:]
+        ),
+        "low20": min(
+            float(x[3])
+            for x in klines[-20:]
+        )
+    }
+
+
+def technical_signal(h1, h4):
+
+    score = 0
+    reasons = []
+
+    bull1 = h1["ema9"] > h1["ema21"]
+    bull4 = h4["ema9"] > h4["ema21"]
+
+    bear1 = h1["ema9"] < h1["ema21"]
+    bear4 = h4["ema9"] < h4["ema21"]
+
+    if bull1 and bull4:
+
+        direction = "LONG"
+
+        score += 3
+
+        reasons.append(
+            "1H + 4H trend yukarı"
+        )
+
+    elif bear1 and bear4:
+
+        direction = "SHORT"
+
+        score += 3
+
+        reasons.append(
+            "1H + 4H trend aşağı"
+        )
+
+    else:
+
+        return "WAIT", 0, [
+            "1H ve 4H trend uyuşmuyor"
+        ]
+
+    # RSI
+
+    if direction == "LONG":
+
+        if 52 <= h1["rsi"] <= 68:
+
+            score += 1
+
+            reasons.append(
+                "RSI yükselişi destekliyor"
             )
 
-            root = ET.fromstring(response.text)
+        elif h1["rsi"] > 75:
 
-            for item in root.iter():
-                if not item.tag.lower().endswith("item"):
-                    continue
+            score -= 1
 
-                title = ""
+            reasons.append(
+                "RSI fazla yükselmiş"
+            )
 
-                for child in item:
-                    if child.tag.lower().endswith("title"):
-                        title = (child.text or "").strip()
-                        break
+    if direction == "SHORT":
 
-                if title and base in title.lower():
-                    news.append(title)
+        if 32 <= h1["rsi"] <= 48:
+
+            score += 1
+
+            reasons.append(
+                "RSI düşüşü destekliyor"
+            )
+
+        elif h1["rsi"] < 25:
+
+            score -= 1
+
+            reasons.append(
+                "RSI fazla düşmüş"
+            )
+
+    # HACİM
+
+    if h1["volume_ratio"] >= 1.5:
+
+        score += 2
+
+        reasons.append(
+            "Hacim belirgin artıyor"
+        )
+
+    elif h1["volume_ratio"] >= 1.15:
+
+        score += 1
+
+        reasons.append(
+            "Hacim destekliyor"
+        )
+
+    # MOMENTUM
+
+    if direction == "LONG" and h1["change"] > 0:
+
+        score += 1
+
+        reasons.append(
+            "Momentum alıcı tarafında"
+        )
+
+    elif direction == "SHORT" and h1["change"] < 0:
+
+        score += 1
+
+        reasons.append(
+            "Momentum satıcı tarafında"
+        )
+
+    return direction, score, reasons
+
+
+# ============================================================
+# BYBIT FUTURES PROXY
+# ============================================================
+
+def bybit_request(path, params):
+
+    return get_json(
+        f"{BYBIT}{path}",
+        params
+    )
+
+
+def bybit_kline(symbol, interval):
+
+    try:
+
+        data = bybit_request(
+            "/v5/market/kline",
+            {
+                "category": "linear",
+                "symbol": symbol,
+                "interval": interval,
+                "limit": 50
+            }
+        )
+
+        if data.get("retCode") != 0:
+            return None
+
+        rows = data["result"]["list"]
+
+        rows.reverse()
+
+        return [
+            [
+                x[0],
+                x[1],
+                x[2],
+                x[3],
+                x[4],
+                x[5]
+            ]
+            for x in rows
+        ]
+
+    except Exception:
+        return None
+
+
+def bybit_funding(symbol):
+
+    try:
+
+        data = bybit_request(
+            "/v5/market/funding/history",
+            {
+                "category": "linear",
+                "symbol": symbol,
+                "limit": 1
+            }
+        )
+
+        rows = data["result"]["list"]
+
+        if not rows:
+            return 0
+
+        return float(
+            rows[0].get(
+                "fundingRate",
+                0
+            )
+        )
+
+    except Exception:
+        return 0
+
+
+def bybit_oi(symbol):
+
+    try:
+
+        data = bybit_request(
+            "/v5/market/open-interest",
+            {
+                "category": "linear",
+                "symbol": symbol,
+                "intervalTime": "1h",
+                "limit": 3
+            }
+        )
+
+        rows = data["result"]["list"]
+
+        if len(rows) < 2:
+            return 0
+
+        newest = float(
+            rows[0]["openInterest"]
+        )
+
+        oldest = float(
+            rows[-1]["openInterest"]
+        )
+
+        if oldest == 0:
+            return 0
+
+        return (
+            (newest - oldest)
+            / oldest
+            * 100
+        )
+
+    except Exception:
+        return 0
+
+
+def bybit_derivatives(symbol):
+
+    try:
+
+        k1 = bybit_kline(
+            symbol,
+            "60"
+        )
+
+        k4 = bybit_kline(
+            symbol,
+            "240"
+        )
+
+        if not k1 or not k4:
+
+            return {
+                "available": False,
+                "direction": "UNKNOWN",
+                "funding": 0,
+                "oi": 0
+            }
+
+        h1 = candle_info(k1)
+        h4 = candle_info(k4)
+
+        if (
+            h1["ema9"] > h1["ema21"]
+            and
+            h4["ema9"] > h4["ema21"]
+        ):
+            direction = "LONG"
+
+        elif (
+            h1["ema9"] < h1["ema21"]
+            and
+            h4["ema9"] < h4["ema21"]
+        ):
+            direction = "SHORT"
+
+        else:
+            direction = "NEUTRAL"
+
+        return {
+            "available": True,
+            "direction": direction,
+            "funding": bybit_funding(symbol),
+            "oi": bybit_oi(symbol)
+        }
+
+    except Exception:
+
+        return {
+            "available": False,
+            "direction": "UNKNOWN",
+            "funding": 0,
+            "oi": 0
+        }
+
+
+# ============================================================
+# HABER
+# ============================================================
+
+RSS_FEEDS = [
+    "https://www.coindesk.com/arc/outboundfeeds/rss/",
+    "https://cointelegraph.com/rss"
+]
+
+
+def clean_html(text):
+
+    text = re.sub(
+        r"<[^>]+>",
+        " ",
+        text or ""
+    )
+
+    return re.sub(
+        r"\s+",
+        " ",
+        text
+    ).strip()
+
+
+def coin_news(symbol):
+
+    coin = symbol.replace(
+        "USDT",
+        ""
+    ).upper()
+
+    results = []
+
+    for feed_url in RSS_FEEDS:
+
+        try:
+
+            feed = feedparser.parse(
+                feed_url
+            )
+
+            for item in feed.entries[:30]:
+
+                title = clean_html(
+                    item.get(
+                        "title",
+                        ""
+                    )
+                )
+
+                summary = clean_html(
+                    item.get(
+                        "summary",
+                        ""
+                    )
+                )
+
+                text = (
+                    title
+                    + " "
+                    + summary
+                ).upper()
+
+                if (
+                    coin in text
+                    or f"${coin}" in text
+                ):
+
+                    results.append(title)
+
+                if len(results) >= 2:
+                    break
+
+        except Exception:
+            pass
+
+        if len(results) >= 2:
+            break
+
+    if not results:
+
+        return (
+            "Coin'e özel güncel "
+            "haber bulunamadı."
+        )
+
+    return " | ".join(
+        results[:2]
+    )
+
+
+def news_effect(news):
+
+    upper = news.upper()
+
+    negative = [
+        "HACK",
+        "EXPLOIT",
+        "SCAM",
+        "SECURITY",
+        "LAWSUIT",
+        "DELIST",
+        "ATTACK",
+        "VULNERABILITY"
+    ]
+
+    positive = [
+        "PARTNERSHIP",
+        "LAUNCH",
+        "LISTING",
+        "ADOPTION",
+        "UPGRADE",
+        "MAINNET",
+        "INTEGRATION",
+        "ETF"
+    ]
+
+    if any(x in upper for x in negative):
+        return -2
+
+    if any(x in upper for x in positive):
+        return 1
+
+    return 0
+
+
+# ============================================================
+# İŞLEM HESAPLAMA
+# ============================================================
+
+def build_trade(
+    symbol,
+    price,
+    direction,
+    score,
+    h1,
+    deriv,
+    reasons
+):
+
+    if direction not in [
+        "LONG",
+        "SHORT"
+    ]:
+        return None
+
+    # Güce göre kaldıraç
+
+    if score >= 9:
+
+        leverage = 10
+        target_budget = 40
+
+    elif score >= 8:
+
+        leverage = 8
+        target_budget = 35
+
+    elif score >= 7:
+
+        leverage = 6
+        target_budget = 30
+
+    elif score >= 6:
+
+        leverage = 5
+        target_budget = 20
+
+    else:
+
+        leverage = 3
+        target_budget = 10
+
+    # Volatilite
+
+    range_pct = (
+        h1["high20"]
+        - h1["low20"]
+    ) / price
+
+    if range_pct > 0.12:
+
+        leverage = 3
+
+    elif range_pct > 0.08:
+
+        leverage = min(
+            leverage,
+            5
+        )
+
+    stop_pct = clamp(
+        range_pct * 0.35,
+        0.012,
+        0.07
+    )
+
+    if direction == "LONG":
+
+        entry = price
+
+        stop = (
+            entry
+            * (1 - stop_pct)
+        )
+
+        tp1 = (
+            entry
+            * (1 + stop_pct * 1.4)
+        )
+
+        tp2 = (
+            entry
+            * (1 + stop_pct * 2.2)
+        )
+
+    else:
+
+        entry = price
+
+        stop = (
+            entry
+            * (1 + stop_pct)
+        )
+
+        tp1 = (
+            entry
+            * (1 - stop_pct * 1.4)
+        )
+
+        tp2 = (
+            entry
+            * (1 - stop_pct * 2.2)
+        )
+
+    # Maksimum yaklaşık $2.50 risk
+
+    risk_ratio = abs(
+        entry - stop
+    ) / entry
+
+    budget = min(
+        target_budget,
+        START_CAPITAL
+    )
+
+    if risk_ratio > 0:
+
+        max_budget = (
+            MAX_RISK
+            / (
+                risk_ratio
+                * leverage
+            )
+        )
+
+        budget = min(
+            budget,
+            max_budget
+        )
+
+    if budget < 5:
+        return None
+
+    # Bybit futures teyidi
+
+    if deriv["available"]:
+
+        if (
+            deriv["direction"]
+            == direction
+        ):
+
+            score += 1
+
+            reasons.append(
+                "Futures yönü destekliyor"
+            )
+
+        elif (
+            deriv["direction"]
+            in ["LONG", "SHORT"]
+            and
+            deriv["direction"]
+            != direction
+        ):
+
+            score -= 1
+
+            reasons.append(
+                "Futures yönü ters"
+            )
+
+        if abs(
+            deriv["oi"]
+        ) >= 3:
+
+            reasons.append(
+                "Open Interest hareketli"
+            )
+
+    return {
+        "symbol": symbol,
+        "direction": direction,
+        "score": score,
+        "leverage": leverage,
+        "budget": budget,
+        "entry": entry,
+        "stop": stop,
+        "tp1": tp1,
+        "tp2": tp2,
+        "loss": (
+            budget
+            * risk_ratio
+            * leverage
+        ),
+        "profit1": (
+            budget
+            * abs(tp1 - entry)
+            / entry
+            * leverage
+        ),
+        "profit2": (
+            budget
+            * abs(tp2 - entry)
+            / entry
+            * leverage
+        ),
+        "reasons": reasons[:5]
+    }
+
+
+def strength(score):
+
+    if score >= 7:
+        return "🚀 ÇOK GÜÇLÜ"
+
+    if score >= 6:
+        return "🟢 GÜÇLÜ"
+
+    return "🟡 ORTA GÜÇLÜ"
+
+
+def format_trade(trade, news):
+
+    lines = [
+
+        "🚨 BINANCE RADAR",
+        "",
+        f"🪙 {trade['symbol']}",
+        (
+            f"📌 {trade['direction']} | "
+            f"{strength(trade['score'])}"
+        ),
+        "",
+        f"💰 Bütçe: ${trade['budget']:.2f}",
+        f"⚙️ Kaldıraç: {trade['leverage']}x",
+        "",
+        f"🎯 Giriş: {fmt_price(trade['entry'])}",
+        f"🛑 Stop: {fmt_price(trade['stop'])}",
+        f"🎯 TP1: {fmt_price(trade['tp1'])}",
+        f"🎯 TP2: {fmt_price(trade['tp2'])}",
+        "",
+        (
+            f"❌ Tahmini zarar: "
+            f"${trade['loss']:.2f}"
+        ),
+        (
+            f"💵 TP1 kârı: "
+            f"${trade['profit1']:.2f}"
+        ),
+        (
+            f"💵 TP2 kârı: "
+            f"${trade['profit2']:.2f}"
+        ),
+        "",
+        "Neden:"
+    ]
+
+    for reason in trade["reasons"]:
+
+        lines.append(
+            f"• {reason}"
+        )
+
+    lines += [
+        "",
+        "📰 Coin haberi:",
+        news[:500],
+        "",
+        (
+            "⚠️ Otomatik işlem yapmaz. "
+            "Manuel değerlendirme gerekir."
+        )
+    ]
+
+    return "\n".join(lines)
+
+
+# ============================================================
+# BINANCE RADAR
+# ============================================================
+
+def binance_radar(state):
+
+    print(
+        "BINANCE RADAR BAŞLIYOR"
+    )
+    print(
+        "-----------------------"
+    )
+
+    info = binance_exchange_info()
+    tickers = binance_tickers()
+
+    ticker_map = {}
+
+    for x in tickers:
+
+        symbol = x.get(
+            "symbol"
+        )
+
+        if symbol in info:
+
+            ticker_map[
+                symbol
+            ] = x
+
+    candidates = []
+
+    for symbol, x in ticker_map.items():
+
+        try:
+
+            price = float(
+                x["lastPrice"]
+            )
+
+            change = float(
+                x["priceChangePercent"]
+            )
+
+            volume = float(
+                x["quoteVolume"]
+            )
+
+            if price <= 0:
+                continue
+
+            # +30 / -30 üstünü alma
+
+            if abs(change) > 30:
+                continue
+
+            # Düşük hacimli coinleri alma
+
+            if volume < 500000:
+                continue
+
+            candidates.append({
+                "symbol": symbol,
+                "price": price,
+                "change": change,
+                "volume": volume
+            })
 
         except Exception:
             continue
 
-    return news[:2]
-
-
-# ------------------------------------------------------------
-# BINANCE RADAR
-# ------------------------------------------------------------
-
-def scan_binance():
-    print("--------------------------------")
-    print("BINANCE RADAR BAŞLIYOR")
-    print("--------------------------------")
-
-    # Spot 24h verisi
-    spot = get_json(
-        f"{BINANCE_SPOT}/api/v3/ticker/24hr"
-    )
-
-    # USDT çiftleri
-    excluded = {
-        "USDCUSDT",
-        "FDUSDUSDT",
-        "TUSDUSDT",
-        "USDPUSDT",
-        "DAIUSDT"
-    }
-
-    spot = [
-        x for x in spot
-        if x.get("symbol", "").endswith("USDT")
-        and x.get("symbol") not in excluded
-    ]
-
-    # Aşırı pump/dump olanları ilk havuzdan çıkar.
-    spot = [
-        x for x in spot
-        if abs(float(x.get("priceChangePercent", 0))) <= 30
-    ]
-
-    # Hacme göre sırala.
-    spot.sort(
-        key=lambda x: float(x.get("quoteVolume", 0)),
+    candidates.sort(
+        key=lambda x: x["volume"],
         reverse=True
     )
 
-    symbols = [x["symbol"] for x in spot[:MAX_BINANCE_COINS]]
+    candidates = candidates[:100]
 
-    # XVG ve QNT her zaman özel kontrol listesinde olsun.
-    for special in SPECIAL:
-        if special not in symbols:
-            symbols.append(special)
+    # XVG ve QNT mutlaka ekleniyor
 
-    # Futures 24h
-    futures_tickers = get_json(
-        f"{BINANCE_FAPI}/fapi/v1/ticker/24hr"
-    )
+    for special in SPECIAL_COINS:
 
-    futures_map = {
-        x["symbol"]: x
-        for x in futures_tickers
-    }
-
-    # BTC yönü
-    btc_klines = get_json(
-        f"{BINANCE_FAPI}/fapi/v1/klines",
-        {
-            "symbol": "BTCUSDT",
-            "interval": "1h",
-            "limit": 60
-        }
-    )
-
-    btc_closes = [float(x[4]) for x in btc_klines]
-
-    btc_ema9 = ema(btc_closes, 9)
-    btc_ema21 = ema(btc_closes, 21)
-
-    btc_direction = (
-        "UP"
-        if btc_ema9 and btc_ema21 and btc_ema9 > btc_ema21
-        else "DOWN"
-    )
-
-    results = []
-
-    print(f"{len(symbols)} Binance coin taranıyor...")
-
-    for index, symbol in enumerate(symbols, 1):
-
-        try:
-            futures = futures_map.get(symbol)
-
-            # Futures yoksa LONG/SHORT analizi yapılamaz.
-            # Spot yine de analiz edilebilir ama fiyat verisini
-            # spot ticker'dan alıyoruz.
-            spot_item = next(
-                (x for x in spot if x["symbol"] == symbol),
-                None
+        if (
+            special in ticker_map
+            and
+            not any(
+                x["symbol"] == special
+                for x in candidates
             )
+        ):
 
-            if not spot_item:
-                continue
+            x = ticker_map[special]
 
-            if not futures:
-                continue
+            try:
 
-            change24 = float(
-                futures.get("priceChangePercent", 0)
-            )
-
-            if abs(change24) > 30:
-                continue
-
-            # 1H
-            k1 = get_json(
-                f"{BINANCE_FAPI}/fapi/v1/klines",
-                {
-                    "symbol": symbol,
-                    "interval": "1h",
-                    "limit": 60
-                }
-            )
-
-            # 4H
-            k4 = get_json(
-                f"{BINANCE_FAPI}/fapi/v1/klines",
-                {
-                    "symbol": symbol,
-                    "interval": "4h",
-                    "limit": 60
-                }
-            )
-
-            c1 = [float(x[4]) for x in k1]
-            c4 = [float(x[4]) for x in k4]
-            v1 = [float(x[5]) for x in k1]
-
-            if len(c1) < 30 or len(c4) < 30:
-                continue
-
-            e91 = ema(c1, 9)
-            e211 = ema(c1, 21)
-
-            e94 = ema(c4, 9)
-            e214 = ema(c4, 21)
-
-            current_rsi = rsi(c1)
-
-            if not all([e91, e211, e94, e214, current_rsi]):
-                continue
-
-            trend1 = "UP" if e91 > e211 else "DOWN"
-            trend4 = "UP" if e94 > e214 else "DOWN"
-
-            aligned = trend1 == trend4
-
-            # Son kapanmış 1H mum / önceki 20 mum ortalaması
-            previous_volume = v1[-2]
-
-            avg_volume = sum(v1[-22:-2]) / 20
-
-            volume_ratio = (
-                previous_volume / avg_volume
-                if avg_volume > 0
-                else 0
-            )
-
-            # Kısa vadeli momentum
-            momentum = (
-                (c1[-2] / c1[-4]) - 1
-            ) * 100
-
-            score = 0
-            reasons = []
-
-            # 1H + 4H trend
-            if aligned:
-                score += 2
-                reasons.append("1H ve 4H trend uyumlu")
-
-            # RSI
-            if trend1 == "UP" and 50 <= current_rsi <= 68:
-                score += 1
-                reasons.append("RSI yükseliş bölgesinde")
-
-            elif trend1 == "DOWN" and 32 <= current_rsi <= 50:
-                score += 1
-                reasons.append("RSI düşüş bölgesinde")
-
-            # Hacim
-            if volume_ratio >= 1.5:
-                score += 2
-                reasons.append("Hacim belirgin artıyor")
-
-            elif volume_ratio >= 1.15:
-                score += 1
-                reasons.append("Hacim destekli")
-
-            # BTC
-            if trend1 == "UP" and btc_direction == "UP":
-                score += 1
-                reasons.append("BTC yönü destekliyor")
-
-            elif trend1 == "DOWN" and btc_direction == "DOWN":
-                score += 1
-                reasons.append("BTC yönü destekliyor")
-
-            # Momentum
-            if abs(momentum) >= 0.5:
-                score += 1
-                reasons.append("Kısa vadeli momentum var")
-
-            funding = 0.0
-            oi_change = None
-
-            # Ağır futures verilerini sadece güçlü adaylarda çağır.
-            if score >= 4:
-
-                try:
-                    premium = get_json(
-                        f"{BINANCE_FAPI}/fapi/v1/premiumIndex",
-                        {"symbol": symbol}
-                    )
-
-                    funding = (
-                        float(
-                            premium.get("lastFundingRate", 0)
-                        ) * 100
-                    )
-
-                except Exception:
-                    funding = 0.0
-
-                try:
-                    oi_history = get_json(
-                        f"{BINANCE_FAPI}/futures/data/openInterestHist",
-                        {
-                            "symbol": symbol,
-                            "period": "1h",
-                            "limit": 3
-                        }
-                    )
-
-                    if len(oi_history) >= 2:
-
-                        old_oi = float(
-                            oi_history[-2]["sumOpenInterestValue"]
-                        )
-
-                        new_oi = float(
-                            oi_history[-1]["sumOpenInterestValue"]
-                        )
-
-                        if old_oi > 0:
-                            oi_change = (
-                                (new_oi / old_oi) - 1
-                            ) * 100
-
-                except Exception:
-                    oi_change = None
-
-                # Funding çok şişik değilse puan.
-                if trend1 == "UP" and funding < 0.05:
-                    score += 1
-                    reasons.append("Funding aşırı şişik değil")
-
-                elif trend1 == "DOWN" and funding > -0.05:
-                    score += 1
-                    reasons.append("Funding short tarafını aşırı kalabalık göstermiyor")
-
-                # OI artışı
-                if oi_change is not None and oi_change > 0:
-                    score += 1
-                    reasons.append("Open Interest yükseliyor")
-
-            # 1H ve 4H aynı değilse sinyal yok.
-            if not aligned:
-                continue
-
-            # En az 6/10
-            if score < 6:
-                continue
-
-            price = float(futures["lastPrice"])
-
-            # LONG / SHORT / SPOT kararı
-            #
-            # DOWN:
-            #   SHORT
-            #
-            # UP:
-            #   güçlü futures şartları varsa LONG
-            #   değilse SPOT
-            if trend1 == "DOWN":
-                side = "SHORT"
-
-            else:
-                if (
-                    score >= 8
-                    and oi_change is not None
-                    and oi_change > 0
-                    and funding < 0.08
-                ):
-                    side = "LONG"
-                else:
-                    side = "SPOT"
-
-            # Stop mesafesi
-            stop_pct = max(
-                0.015,
-                min(
-                    0.05,
-                    0.02 + abs(momentum) / 100 * 0.5
+                change = float(
+                    x["priceChangePercent"]
                 )
-            )
 
-            leverage, budget = budget_for(
-                score,
-                stop_pct,
-                side
-            )
-
-            stop, tp1, tp2, stop_pct = levels(
-                price,
-                side,
-                stop_pct
-            )
-
-            notional = budget * leverage
-
-            planned_loss = notional * stop_pct
-
-            # Risk sınırı
-            if planned_loss > MAX_RISK:
-                continue
-
-            if budget < 5:
-                continue
-
-            results.append({
-                "symbol": symbol,
-                "side": side,
-                "score": score,
-                "price": price,
-                "stop": stop,
-                "tp1": tp1,
-                "tp2": tp2,
-                "budget": budget,
-                "leverage": leverage,
-                "loss": planned_loss,
-                "rsi": current_rsi,
-                "volume_ratio": volume_ratio,
-                "funding": funding,
-                "oi_change": oi_change,
-                "momentum": momentum,
-                "reasons": reasons,
-                "change24": change24
-            })
-
-        except Exception as e:
-            print("BINANCE ERROR", symbol, "=>", e)
-
-    # Önce skor, sonra özel coinler.
-    results.sort(
-        key=lambda x: (
-            x["score"],
-            1 if x["symbol"] in SPECIAL else 0
-        ),
-        reverse=True
-    )
-
-    print(
-        f"Binance sonucu: {len(results)} güçlü aday."
-    )
-
-    return results, len(symbols), btc_direction
-
-
-# ------------------------------------------------------------
-# BINANCE TELEGRAM MESAJI
-# ------------------------------------------------------------
-
-def binance_message(result, total, btc_direction):
-
-    if result is None:
-
-        return f"""🔵 BINANCE RADAR
-
-⚪ WAIT
-
-🪙 Tarama: {total} coin
-₿ BTC yönü: {"YUKARI" if btc_direction == "UP" else "AŞAĞI"}
-
-Bu taramada SPOT / LONG / SHORT için yeterli şart aynı anda oluşmadı."""
-
-    x = result
-
-    if x["side"] == "SPOT":
-        leverage_text = "Yok"
-    else:
-        leverage_text = f'{x["leverage"]}x'
-
-    tp1_profit = (
-        x["budget"]
-        * x["leverage"]
-        * abs(
-            x["tp1"] / x["price"] - 1
-        )
-    )
-
-    tp2_profit = (
-        x["budget"]
-        * x["leverage"]
-        * abs(
-            x["tp2"] / x["price"] - 1
-        )
-    )
-
-    message = f"""🚨 BINANCE FIRSAT
-
-🪙 {x["symbol"]}
-📌 {x["side"]}
-
-💰 Bütçe: ${x["budget"]:.2f}
-⚙️ Kaldıraç: {leverage_text}
-
-🎯 Giriş: {fmt_price(x["price"])}
-🛑 Stop: {fmt_price(x["stop"])}
-🥇 TP1: {fmt_price(x["tp1"])}
-🥈 TP2: {fmt_price(x["tp2"])}
-
-💵 Tahmini zarar: -${x["loss"]:.2f}
-💰 TP1 tahmini: +${tp1_profit:.2f}
-💰 TP2 tahmini: +${tp2_profit:.2f}
-
-🔥 Skor: {x["score"]}/10
-📊 RSI: {x["rsi"]:.1f}
-📈 Hacim: {x["volume_ratio"]:.1f}x
-₿ BTC: {"YUKARI" if btc_direction == "UP" else "AŞAĞI"}
-
-💡 Neden?
-"""
-
-    for reason in x["reasons"][:5]:
-        message += f"• {reason}\n"
-
-    news = coin_news(x["symbol"])
-
-    if news:
-        message += "\n📰 Coin haberi:\n"
-
-        for item in news:
-            message += f"• {item[:180]}\n"
-
-    message += (
-        "\n⚠️ Otomatik işlem açmaz."
-        "\nİşlemden önce Binance ekranında kontrol et."
-    )
-
-    return message
-
-
-# ------------------------------------------------------------
-# SOLANA KEŞİF
-# ------------------------------------------------------------
-
-def discover_solana_tokens():
-
-    candidates = {}
-
-    # DEX Screener kaynakları
-    endpoints = [
-        f"{DEX}/token-profiles/latest/v1",
-        f"{DEX}/token-boosts/latest/v1"
-    ]
-
-    for endpoint in endpoints:
-
-        try:
-
-            data = get_json(endpoint)
-
-            for item in data:
-
-                if (
-                    item.get("chainId") == "solana"
-                    and item.get("tokenAddress")
-                ):
-
-                    candidates[item["tokenAddress"]] = item
-
-        except Exception as e:
-            print("DEX discovery ERROR:", e)
-
-    # GeckoTerminal yeni pool kaynağı
-    try:
-
-        data = get_json(
-            f"{GECKO}/networks/solana/new_pools",
-            {"page": 1}
-        )
-
-        for item in data.get("data", []):
-
-            relationships = item.get(
-                "relationships",
-                {}
-            )
-
-            base_token = relationships.get(
-                "base_token",
-                {}
-            )
-
-            token_data = base_token.get(
-                "data",
-                {}
-            )
-
-            token_id = token_data.get(
-                "id",
-                ""
-            )
-
-            if token_id.startswith("solana_"):
-
-                address = token_id.split(
-                    "_",
-                    1
-                )[1]
-
-                if address:
-
-                    candidates.setdefault(
-                        address,
-                        {
-                            "chainId": "solana",
-                            "tokenAddress": address,
-                            "links": []
-                        }
-                    )
-
-    except Exception as e:
-        print("GeckoTerminal discovery ERROR:", e)
-
-    print(
-        f"Solana keşif adayı: {len(candidates)}"
-    )
-
-    return candidates
-
-
-# ------------------------------------------------------------
-# SOLANA RADAR
-# ------------------------------------------------------------
-
-def scan_solana(state):
-
-    candidates = discover_solana_tokens()
-
-    addresses = list(candidates.keys())[:100]
-
-    if not addresses:
-        return [], 0, 0
-
-    pairs = []
-
-    # DEX Screener maksimum 30 adreslik parçalarla.
-    for start in range(
-        0,
-        len(addresses),
-        30
-    ):
-
-        chunk = addresses[
-            start:start + 30
-        ]
-
-        try:
-
-            data = get_json(
-                f"{DEX}/tokens/v1/solana/{','.join(chunk)}"
-            )
-
-            if isinstance(data, list):
-                pairs.extend(data)
-
-        except Exception as e:
-            print(
-                "DEX pair ERROR:",
-                e
-            )
-
-    # Her token için en yüksek likiditeli pair
-    best_pairs = {}
-
-    for pair in pairs:
-
-        if pair.get("chainId") != "solana":
-            continue
-
-        address = (
-            pair.get("baseToken", {})
-            .get("address")
-        )
-
-        if address not in candidates:
-            continue
-
-        liquidity = float(
-            (pair.get("liquidity") or {})
-            .get("usd") or 0
-        )
-
-        if liquidity < 10000:
-            continue
-
-        old = best_pairs.get(address)
-
-        if old is None:
-
-            best_pairs[address] = pair
-
-        else:
-
-            old_liquidity = float(
-                (old.get("liquidity") or {})
-                .get("usd") or 0
-            )
-
-            if liquidity > old_liquidity:
-                best_pairs[address] = pair
+                if abs(change) <= 30:
+
+                    candidates.append({
+                        "symbol": special,
+                        "price": float(
+                            x["lastPrice"]
+                        ),
+                        "change": change,
+                        "volume": float(
+                            x["quoteVolume"]
+                        )
+                    })
+
+            except Exception:
+                pass
 
     alerts = []
 
-    for address, pair in best_pairs.items():
+    for index, coin in enumerate(
+        candidates
+    ):
+
+        symbol = coin["symbol"]
 
         try:
 
-            price_change = (
-                pair.get("priceChange") or {}
+            # Binance spot 1H
+
+            k1 = binance_klines(
+                symbol,
+                "1h"
             )
 
-            volume = (
-                pair.get("volume") or {}
+            # Binance spot 4H
+
+            k4 = binance_klines(
+                symbol,
+                "4h"
             )
 
-            transactions = (
-                pair.get("txns") or {}
-            )
-
-            h1 = float(
-                price_change.get("h1") or 0
-            )
-
-            m5 = float(
-                price_change.get("m5") or 0
-            )
-
-            h24 = float(
-                price_change.get("h24") or 0
-            )
-
-            volume_h1 = float(
-                volume.get("h1") or 0
-            )
-
-            volume_m5 = float(
-                volume.get("m5") or 0
-            )
-
-            h1_tx = (
-                transactions.get("h1")
-                or {}
-            )
-
-            buys = int(
-                h1_tx.get("buys") or 0
-            )
-
-            sells = int(
-                h1_tx.get("sells") or 0
-            )
-
-            liquidity = float(
-                (pair.get("liquidity") or {})
-                .get("usd") or 0
-            )
-
-            # Erken hareket filtresi
-            if h1 < 3:
+            if not k1 or not k4:
                 continue
 
-            # Çoktan pump olmuşsa alma
-            if h1 > 25:
-                continue
+            h1 = candle_info(k1)
+            h4 = candle_info(k4)
 
-            if h24 > 40:
-                continue
-
-            # Çok sert 5 dk düşüş varsa alma
-            if m5 < -5:
-                continue
-
-            if volume_h1 < 5000:
-                continue
-
-            if volume_m5 <= 0:
-                continue
-
-            volume_acceleration = (
-                volume_m5 * 12
-            ) / volume_h1
-
-            if volume_acceleration < 2:
-                continue
-
-            buy_sell_ratio = (
-                buys / max(sells, 1)
+            direction, score, reasons = (
+                technical_signal(
+                    h1,
+                    h4
+                )
             )
 
-            if buy_sell_ratio < 1.05:
+            if direction == "WAIT":
                 continue
 
-            score = 0
+            # XVG / QNT önceliği
 
-            # Fiyat henüz erken bölgede
-            if 3 <= h1 <= 15:
-                score += 2
+            if symbol in SPECIAL_COINS:
 
-            elif 15 < h1 <= 25:
                 score += 1
 
-            # Hacim ivmesi
-            if volume_acceleration >= 3:
-                score += 2
+                reasons.append(
+                    "Özel takip listesinde"
+                )
 
-            elif volume_acceleration >= 2:
-                score += 1
+            # Futures proxy sadece
+            # teknik olarak adaylarda
 
-            # Alıcı/satıcı
-            if buy_sell_ratio >= 1.5:
-                score += 2
+            deriv = {
+                "available": False,
+                "direction": "UNKNOWN",
+                "funding": 0,
+                "oi": 0
+            }
 
-            elif buy_sell_ratio >= 1.15:
-                score += 1
+            if score >= 4:
 
-            # Likidite
-            if liquidity >= 25000:
-                score += 1
+                deriv = (
+                    bybit_derivatives(
+                        symbol
+                    )
+                )
 
-            # Sosyal link
-            links = (
-                candidates[address]
-                .get("links")
-                or []
+            news = coin_news(
+                symbol
             )
 
-            if links:
+            effect = news_effect(
+                news
+            )
+
+            if effect > 0:
+
                 score += 1
+
+                reasons.append(
+                    "Olumlu coin haberi bulundu"
+                )
+
+            elif effect < 0:
+
+                score -= 2
+
+                reasons.append(
+                    "Coin için risk haberi bulundu"
+                )
+
+            # 6 altı sinyal yok
 
             if score < 6:
                 continue
 
-            # 24 saat tekrar engeli
-            last_alert = (
-                state
-                .get("sol_alerts", {})
-                .get(address, 0)
+            trade = build_trade(
+                symbol,
+                coin["price"],
+                direction,
+                score,
+                h1,
+                deriv,
+                reasons
+            )
+
+            if not trade:
+                continue
+
+            # Aynı coin 1 saat tekrar yok
+
+            last = state[
+                "binance_alerts"
+            ].get(
+                symbol,
+                0
             )
 
             if (
-                time.time() - last_alert
-                < SOL_REPEAT_HOURS * 3600
+                now() - last
+                < 3600
             ):
                 continue
 
-            name = (
-                pair.get("baseToken", {})
-                .get("symbol")
-                or "UNKNOWN"
+            alerts.append(
+                (
+                    trade,
+                    news
+                )
             )
 
-            alerts.append({
-                "name": name,
-                "address": address,
-                "h1": h1,
-                "m5": m5,
-                "h24": h24,
-                "volume_h1": volume_h1,
-                "volume_acceleration": volume_acceleration,
-                "buys": buys,
-                "sells": sells,
-                "buy_sell_ratio": buy_sell_ratio,
-                "liquidity": liquidity,
-                "score": score,
-                "url": pair.get("url")
-            })
+            if len(alerts) >= 3:
+                break
 
         except Exception as e:
+
             print(
-                "SOLANA ANALYSIS ERROR:",
-                e
+                "Binance aday hata:",
+                symbol,
+                repr(e)
             )
 
-    alerts.sort(
-        key=lambda x: x["score"],
-        reverse=True
+    for trade, news in alerts:
+
+        telegram(
+            format_trade(
+                trade,
+                news
+            )
+        )
+
+        state[
+            "binance_alerts"
+        ][
+            trade["symbol"]
+        ] = now()
+
+    # Saatlik WAIT
+
+    if (
+        not alerts
+        and
+        now()
+        - state.get(
+            "last_wait",
+            0
+        )
+        >= 3600
+    ):
+
+        telegram(
+            "🟡 BINANCE RADAR\n\n"
+            "Yeterince güçlü ve "
+            "teyitli fırsat bulunamadı.\n\n"
+            "Karar: WAIT ⏳"
+        )
+
+        state["last_wait"] = now()
+
+    print(
+        f"Binance: "
+        f"{len(candidates)} aday, "
+        f"{len(alerts)} alarm."
     )
 
-    return (
-        alerts[:3],
-        len(candidates),
-        len(best_pairs)
-    )
+    return state
 
 
-# ------------------------------------------------------------
-# SOLANA TELEGRAM
-# ------------------------------------------------------------
+# ============================================================
+# SOLANA RADAR
+# ============================================================
 
-def solana_message(alert):
-
-    return f"""🚨 SOLANA ERKEN UYARI
-
-🪙 {alert["name"]}
-
-📈 1H hareket: {alert["h1"]:.1f}%
-🔥 Hacim ivmesi: {alert["volume_acceleration"]:.1f}x
-
-👥 Alıcı işlemleri: {alert["buys"]}
-🔻 Satıcı işlemleri: {alert["sells"]}
-⚖️ Alım/Satım: {alert["buy_sell_ratio"]:.1f}x
-
-💧 Likidite: ${alert["liquidity"]:,.0f}
-
-💡 Neden dikkat çekti?
-• Fiyat henüz aşırı yükselmiş değil.
-• Hacim hızlanıyor.
-• Alım tarafı güçleniyor.
-• Likidite filtresini geçti.
-
-🟡 ERKEN AŞAMA
-⚠️ Meme coin — çok yüksek risk
-🔎 Phantom'dan kontratı kontrol et.
-
-{alert["url"] or ""}"""
-
-
-# ------------------------------------------------------------
-# ANA PROGRAM
-# ------------------------------------------------------------
-
-def main():
-
-    state = load_state()
-
-    print("================================")
-    print("BINANCE + SOLANA RADAR")
-    print("================================")
-
-    # ========================================================
-    # BINANCE
-    # ========================================================
+def solana_profiles():
 
     try:
 
-        results, total, btc_direction = (
-            scan_binance()
+        return get_json(
+            f"{DEX}/token-profiles/latest/v1"
         )
 
-        now = time.time()
+    except Exception:
 
-        # Sonuçlar varsa en güçlü adayı gönder.
-        if results:
+        return []
 
-            sent = False
 
-            for result in results:
+def solana_boosts():
 
-                symbol = result["symbol"]
+    try:
 
-                last = (
-                    state
-                    .get("binance_alerts", {})
-                    .get(symbol, 0)
-                )
+        return get_json(
+            f"{DEX}/token-boosts/latest/v1"
+        )
 
-                if (
-                    now - last
-                    >= BINANCE_REPEAT_MINUTES * 60
-                ):
+    except Exception:
 
-                    if telegram(
-                        binance_message(
-                            result,
-                            total,
-                            btc_direction
-                        )
-                    ):
+        return []
 
-                        state.setdefault(
-                            "binance_alerts",
-                            {}
-                        )[symbol] = now
 
-                        sent = True
+def new_solana_pools():
 
-                        # Aynı çalışmada tek Binance mesajı
-                        break
+    try:
 
-            if not sent:
+        data = get_json(
+            f"{GECKO}/networks/solana/new_pools"
+        )
 
-                print(
-                    "Binance aday var ama "
-                    "tekrar süresi dolmadı."
-                )
+        return data.get(
+            "data",
+            []
+        )
 
-        else:
+    except Exception:
 
-            # WAIT her 60 dakikada bir
+        return []
+
+
+def solana_candidates():
+
+    result = {}
+
+    for x in solana_profiles():
+
+        address = x.get(
+            "tokenAddress"
+        )
+
+        if address:
+            result[address] = True
+
+    for x in solana_boosts():
+
+        address = x.get(
+            "tokenAddress"
+        )
+
+        if address:
+            result[address] = True
+
+    for x in new_solana_pools()[:50]:
+
+        address = (
+            x.get("attributes", {})
+            .get("address")
+        )
+
+        if address:
+            result[address] = True
+
+    return list(result.keys())[:60]
+
+
+def get_solana_pair(address):
+
+    try:
+
+        data = get_json(
+            f"{DEX}/latest/dex/pairs/solana/{address}"
+        )
+
+        pairs = (
+            data.get("pairs")
+            or []
+        )
+
+        if not pairs:
+            return None
+
+        # TEK pair kullan.
+        # Veriyi farklı pairlerden karıştırma.
+
+        return pairs[0]
+
+    except Exception:
+
+        return None
+
+
+def check_solana(pair):
+
+    try:
+
+        changes = (
+            pair.get(
+                "priceChange"
+            )
+            or {}
+        )
+
+        volumes = (
+            pair.get(
+                "volume"
+            )
+            or {}
+        )
+
+        txns = (
+            pair.get(
+                "txns"
+            )
+            or {}
+        )
+
+        liquidity = (
+            pair.get(
+                "liquidity"
+            )
+            or {}
+        )
+
+        p5 = changes.get(
+            "m5"
+        )
+
+        p1h = changes.get(
+            "h1"
+        )
+
+        p24 = changes.get(
+            "h24"
+        )
+
+        if p5 is None or p1h is None:
+            return None
+
+        p5 = float(p5)
+        p1h = float(p1h)
+        p24 = float(p24 or 0)
+
+        liq = float(
+            liquidity.get(
+                "usd"
+            )
+            or 0
+        )
+
+        volume5 = float(
+            volumes.get(
+                "m5"
+            )
+            or 0
+        )
+
+        volume1h = float(
+            volumes.get(
+                "h1"
+            )
+            or 0
+        )
+
+        # Yetersiz likidite
+
+        if liq < 15000:
+            return None
+
+        # Zaten çok pompalanmış
+
+        if p24 >= 40:
+            return None
+
+        if p1h >= 25:
+            return None
+
+        # Sert düşüşte erken fırsat deme
+
+        if p5 <= -10:
+            return None
+
+        five = (
+            txns.get("m5")
+            or {}
+        )
+
+        buys = int(
+            five.get(
+                "buys",
+                0
+            )
+            or 0
+        )
+
+        sells = int(
+            five.get(
+                "sells",
+                0
+            )
+            or 0
+        )
+
+        total = buys + sells
+
+        if total < 20:
+            return None
+
+        buy_ratio = (
+            buys / total
+        )
+
+        if buy_ratio < 0.56:
+            return None
+
+        # Hacim hızlanması
+
+        acceleration = 0
+
+        if volume1h > 0:
+
+            acceleration = (
+                volume5
+                * 12
+                / volume1h
+            )
+
+        if acceleration < 0.6:
+            return None
+
+        score = 0
+        reasons = []
+
+        if 0 <= p5 <= 5:
+
+            score += 1
+
+            reasons.append(
+                "Henüz aşırı yükselmemiş"
+            )
+
+        elif 5 < p5 <= 15:
+
+            score += 2
+
+            reasons.append(
+                "Kısa vadeli hareket başladı"
+            )
+
+        if p1h > 0:
+
+            score += 1
+
+            reasons.append(
+                "1 saatlik hareket pozitif"
+            )
+
+        if buy_ratio >= 0.60:
+
+            score += 2
+
+            reasons.append(
+                "Alıcılar belirgin üstün"
+            )
+
+        if acceleration >= 1:
+
+            score += 2
+
+            reasons.append(
+                "Hacim hızlanıyor"
+            )
+
+        if liq >= 30000:
+
+            score += 1
+
+            reasons.append(
+                "Likidite daha yeterli"
+            )
+
+        if score < 6:
+            return None
+
+        return {
+            "pair": pair,
+            "score": score,
+            "reasons": reasons
+        }
+
+    except Exception:
+
+        return None
+
+
+def format_solana(alert):
+
+    pair = alert["pair"]
+
+    symbol = (
+        pair.get(
+            "baseToken",
+            {}
+        )
+        .get(
+            "symbol",
+            "?"
+        )
+    )
+
+    change = (
+        pair.get(
+            "priceChange",
+            {}
+        )
+    )
+
+    liquidity = float(
+        (
+            pair.get(
+                "liquidity"
+            )
+            or {}
+        )
+        .get(
+            "usd",
+            0
+        )
+        or 0
+    )
+
+    return (
+        "🟣 SOLANA ERKEN HAREKET RADARI\n\n"
+        f"🪙 {symbol}\n"
+        f"📊 5m: {change.get('m5')}%\n"
+        f"📊 1h: {change.get('h1')}%\n"
+        f"💧 Likidite: ${liquidity:,.0f}\n"
+        f"⭐ Skor: {alert['score']}/10\n\n"
+        "Neden:\n"
+        +
+        "\n".join(
+            f"• {x}"
+            for x in alert["reasons"]
+        )
+        +
+        "\n\n"
+        f"Pair: {pair.get('pairAddress', '')}\n\n"
+        "⚠️ Erken hareket tespiti "
+        "kesin yükseliş garantisi değildir."
+    )
+
+
+def solana_radar(state):
+
+    print(
+        "SOLANA RADAR BAŞLIYOR"
+    )
+
+    candidates = (
+        solana_candidates()
+    )
+
+    alerts = []
+    checked = 0
+
+    for address in candidates:
+
+        try:
+
+            pair = get_solana_pair(
+                address
+            )
+
+            if not pair:
+                continue
+
+            checked += 1
+
+            alert = check_solana(
+                pair
+            )
+
+            if not alert:
+                continue
+
+            pair_address = pair.get(
+                "pairAddress"
+            )
+
+            if not pair_address:
+                continue
+
+            last = state[
+                "solana_alerts"
+            ].get(
+                pair_address,
+                0
+            )
+
             if (
-                now
-                - state.get("last_wait", 0)
-                >= WAIT_EVERY_MINUTES * 60
+                now() - last
+                < 86400
             ):
+                continue
 
-                if telegram(
-                    binance_message(
-                        None,
-                        total,
-                        btc_direction
-                    )
-                ):
+            alerts.append(
+                alert
+            )
 
-                    state["last_wait"] = now
+            state[
+                "solana_alerts"
+            ][
+                pair_address
+            ] = now()
+
+            if len(alerts) >= 3:
+                break
+
+        except Exception as e:
+
+            print(
+                "Solana hata:",
+                repr(e)
+            )
+
+    for alert in alerts:
+
+        telegram(
+            format_solana(
+                alert
+            )
+        )
+
+    print(
+        f"Solana: "
+        f"{len(candidates)} aday, "
+        f"{checked} pair incelendi, "
+        f"{len(alerts)} alarm."
+    )
+
+    return state
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def main():
+
+    print(
+        "======================="
+    )
+
+    print(
+        "BINANCE + SOLANA RADAR"
+    )
+
+    print(
+        "======================="
+    )
+
+    state = load_state()
+
+    try:
+
+        state = binance_radar(
+            state
+        )
 
     except Exception as e:
 
@@ -1213,36 +1802,16 @@ def main():
 
         telegram(
             "⚠️ BINANCE RADAR HATA\n\n"
-            "Tarama tamamlanamadı. "
+            "Binance spot veri kaynağına "
+            "erişilemedi.\n"
             "GitHub Actions logunu kontrol et."
         )
 
-    # ========================================================
-    # SOLANA
-    # ========================================================
-
     try:
 
-        alerts, token_count, pair_count = (
-            scan_solana(state)
+        state = solana_radar(
+            state
         )
-
-        print(
-            f"Solana: {token_count} token adayı, "
-            f"{pair_count} pair incelendi, "
-            f"{len(alerts)} alarm."
-        )
-
-        for alert in alerts:
-
-            if telegram(
-                solana_message(alert)
-            ):
-
-                state.setdefault(
-                    "sol_alerts",
-                    {}
-                )[alert["address"]] = time.time()
 
     except Exception as e:
 
@@ -1251,32 +1820,21 @@ def main():
             repr(e)
         )
 
-        telegram(
-            "⚠️ SOLANA RADAR HATA\n\n"
-            "Tarama tamamlanamadı. "
-            "GitHub Actions logunu kontrol et."
-        )
-
-    # ========================================================
-    # STATE KAYDET
-    # ========================================================
-
     save_state(state)
 
-    print("State kaydedildi.")
+    git_save_state()
 
-    # GitHub'a state'i gönder
-    try:
-        commit_state()
-    except Exception as e:
-        print(
-            "Git state gönderme hatası:",
-            e
-        )
+    print(
+        "======================="
+    )
 
-    print("================================")
-    print("BOT TAMAMLANDI")
-    print("================================")
+    print(
+        "BOT TAMAMLANDI"
+    )
+
+    print(
+        "======================="
+    )
 
 
 if __name__ == "__main__":

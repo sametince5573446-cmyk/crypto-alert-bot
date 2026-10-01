@@ -960,5 +960,65 @@
     "url": "https://dexscreener.com/solana/dfwke9tgr2q7fnz2me3fyfvuohx4nzfzi2tax95graoy",
     "last_seen": 1790823756,
     "last_alert": 0
+  },
+  "GBtQaqvMairsXer3w8qTNcPABJ9SjPhNMrut6LnLPk9e": {
+    "symbol": "Kids",
+    "name": "#ProtectTheKids",
+    "token_address": "6GRcGvopwthaANkWN9wWXF7E5TjUveeM9D1jNDCApump",
+    "pair_address": "GBtQaqvMairsXer3w8qTNcPABJ9SjPhNMrut6LnLPk9e",
+    "change_5m": -0.9,
+    "change_1h": -0.9,
+    "change_6h": -0.9,
+    "change_24h": -0.9,
+    "volume_5m": 57188.01,
+    "volume_1h": 57188.01,
+    "buys_5m": 623,
+    "sells_5m": 488,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 623,
+    "sells_1h": 488,
+    "liquidity": 17848.81,
+    "pair_age_minutes": 2.5,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/river100x/status/2105511925886910877",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/gbtqaqvmairsxer3w8qtncpabj9sjphnmrut6lnlpk9e",
+    "last_seen": 1790828540,
+    "last_alert": 0
+  },
+  "FivAjNRmjWeDdepuTJbqjgwfsDsg1LZSj7q3soLbW2gv": {
+    "symbol": "snowball",
+    "name": "snowball",
+    "token_address": "HpsfKJnkBu53mxLGUCdr4PiTodXouZiVvZD5AoRWdHkY",
+    "pair_address": "FivAjNRmjWeDdepuTJbqjgwfsDsg1LZSj7q3soLbW2gv",
+    "change_5m": -1.73,
+    "change_1h": 27.75,
+    "change_6h": 27.75,
+    "change_24h": 27.75,
+    "volume_5m": 30216.55,
+    "volume_1h": 112826.54,
+    "buys_5m": 365,
+    "sells_5m": 323,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 1651,
+    "sells_1h": 1355,
+    "liquidity": 20867.59,
+    "pair_age_minutes": 14.733333333333333,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/esotericpigeon/status/2105507460022673780?s=20",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/fivajnrmjweddeputjbqjgwfsdsg1lzsj7q3solbw2gv",
+    "last_seen": 1790828544,
+    "last_alert": 0
   }
 }

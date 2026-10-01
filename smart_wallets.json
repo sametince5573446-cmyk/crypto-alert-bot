@@ -538,5 +538,20 @@
         "success": false
       }
     }
+  },
+  "AsjdyCdetvS4WJNuHLDEavQCSKcgVVj9ZTtSt9eU5Mq5": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790828540,
+    "tokens": {
+      "6GRcGvopwthaANkWN9wWXF7E5TjUveeM9D1jNDCApump": {
+        "symbol": "Kids",
+        "entry_move": -0.9,
+        "entry_time": 1790828540,
+        "success": false
+      }
+    }
   }
 }

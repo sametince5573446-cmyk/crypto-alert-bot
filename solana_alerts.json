@@ -1050,5 +1050,35 @@
     "url": "https://dexscreener.com/solana/dxsbgayrefnfxgu9tec17n4usq5jjy4zf9djt7rblrgf",
     "last_seen": 1790829575,
     "last_alert": 0
+  },
+  "8MxvegL1C14ddbBczqpfMLdBvnmDDPGqqTJWqJAYKuhP": {
+    "symbol": "NUVI",
+    "name": "AI Shiba Inu",
+    "token_address": "EEGtwsf5wLWDG4THEu4TdFKTTRpsEoxArWZsetWZpump",
+    "pair_address": "8MxvegL1C14ddbBczqpfMLdBvnmDDPGqqTJWqJAYKuhP",
+    "change_5m": -20.03,
+    "change_1h": 3.2,
+    "change_6h": 102.0,
+    "change_24h": 102.0,
+    "volume_5m": 14596.0,
+    "volume_1h": 652277.44,
+    "buys_5m": 219,
+    "sells_5m": 170,
+    "buys_15m": 0,
+    "sells_15m": 0,
+    "buys_1h": 8583,
+    "sells_1h": 6766,
+    "liquidity": 28444.83,
+    "pair_age_minutes": 65.43333333333334,
+    "boost_active": 0,
+    "socials": [
+      {
+        "url": "https://x.com/i/communities/2031659007245529497",
+        "type": "twitter"
+      }
+    ],
+    "url": "https://dexscreener.com/solana/8mxvegl1c14ddbbczqpfmldbvnmddpgqqtjwqjaykuhp",
+    "last_seen": 1790830385,
+    "last_alert": 0
   }
 }

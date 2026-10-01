@@ -568,5 +568,35 @@
         "success": false
       }
     }
+  },
+  "4xpVkg6PEripZNMPxoXqfa2bwWG3D8w1r12mUyEU53NT": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790830385,
+    "tokens": {
+      "EEGtwsf5wLWDG4THEu4TdFKTTRpsEoxArWZsetWZpump": {
+        "symbol": "NUVI",
+        "entry_move": 3.2,
+        "entry_time": 1790830385,
+        "success": false
+      }
+    }
+  },
+  "2sQu37wQYBaAQeJcgkPsmH8uy59nSfurek4B4mizrim4": {
+    "score": 1,
+    "early_buys": 1,
+    "successful_buys": 0,
+    "coins_seen": 1,
+    "last_seen": 1790830385,
+    "tokens": {
+      "EEGtwsf5wLWDG4THEu4TdFKTTRpsEoxArWZsetWZpump": {
+        "symbol": "NUVI",
+        "entry_move": 3.2,
+        "entry_time": 1790830385,
+        "success": false
+      }
+    }
   }
 }
